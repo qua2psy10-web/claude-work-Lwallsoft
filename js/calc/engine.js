@@ -14,11 +14,21 @@ export function compute(input) {
   const gammaC = input.concrete.gammaC;
   const gamma = input.soil.gamma;
   const L = input.lengths.base;
-  const beta = geom.beta;
-  const Hp0 = geom.H + geom.B3 * Math.tan(beta * RAD); // 仮想背面高さ
+
+  // 嵩上げ盛土（たて壁天端から勾配1:nで嵩上げ高さraiseまで、以降レベル）
+  const raise = input.backfill?.raise || 0;
+  const slopeN = input.backfill?.slopeN || 0;
+  const raised = raise > 1e-9 && slopeN > 0;
+  const beta = raised ? Math.atan(1 / slopeN) / RAD : 0;    // 法面傾斜角（度）
+  // 仮想背面高さ H' と、仮想背面天端より上の残り嵩上げ高さ
+  const riseAtVbf = raised ? Math.min(geom.B3 / slopeN, raise) : 0;
+  const Hp0 = geom.H + riseAtVbf;
+  const riseRem = raised ? raise - riseAtVbf : 0;
+  // 仮想背面の壁面摩擦角 δ＝仮想背面位置の地表面勾配（レベル到達済みなら0、上限φ）
+  const deltaVbf = riseRem > 1e-9 ? Math.min(beta, input.soil.phi) : 0;
 
   const self = selfWeight(geom, gammaC, input.lengths.body);
-  const soil = soilParts(geom, gamma, L);
+  const soil = soilParts(geom, input.backfill, gamma, L);
   const soilV = soil.reduce((s, p) => s + p.V, 0);
   const soilVy = soil.reduce((s, p) => s + p.V * p.y, 0);
 
@@ -38,10 +48,11 @@ export function compute(input) {
     const q = cd.surcharge ? input.surcharge.q : 0;
     const cCoh = cd.seismic ? input.soil.cE : input.soil.c;
 
-    // --- 主働土圧（仮想背面, δ=β） ---
+    // --- 主働土圧（仮想背面, δ=地表面勾配） ---
     const ep = trialWedge({
-      Hp: Hp0, gamma, phi: input.soil.phi, beta, delta: beta,
+      Hp: Hp0, gamma, phi: input.soil.phi, delta: deltaVbf,
       c: cCoh, kh, q, precision: input.epCondition.precision,
+      rise: riseRem, slopeN,
     }, B);
 
     // --- 作用力行 ---
@@ -81,8 +92,9 @@ export function compute(input) {
       // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力
       const deltaStem = input.soil.deltaStem * input.soil.phi;
       const eps = trialWedge({
-        Hp: h, gamma, phi: input.soil.phi, beta, delta: deltaStem,
+        Hp: h, gamma, phi: input.soil.phi, delta: deltaStem,
         c: cCoh, kh, q, precision: input.epCondition.precision,
+        rise: raised ? raise : 0, slopeN,
       }, xb);
       let Ms = eps.PAH * h / 3, Ss = eps.PAH;
       // たて壁自重を分解して慣性力モーメントを算定（付け根 y=t3 まわり）
@@ -117,7 +129,8 @@ export function compute(input) {
         const n = 400;
         for (let i = 0; i < n; i++) {
           const x = xb + (i + 0.5) * geom.B3 / n, dx = geom.B3 / n;
-          const soilCol = gamma * (h + (x - xb) * Math.tan(beta * RAD));
+          const over = raised ? Math.min((x - xb) / slopeN, raise) : 0; // 嵩上げ盛土の上載高
+          const soilCol = gamma * (h + over);
           const w = soilCol + q + gammaC * geom.t3 - reactionAt(reaction, x);
           Mh += w * (x - xb) * dx; Sh += w * dx;
         }
@@ -139,7 +152,8 @@ export function compute(input) {
 
   return {
     input, dims: { h, xb, B }, Hp: Hp0, gammaC,
-    self, soil, soilV, soilVy, beta, collision: col,
+    self, soil, soilV, soilVy, collision: col,
+    backfill: { raise, slopeN, raised, beta, riseRem, deltaVbf },
     cases,
   };
 }

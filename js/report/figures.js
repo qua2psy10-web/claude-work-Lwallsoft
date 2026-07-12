@@ -66,37 +66,49 @@ export function sectionFig(geom) {
   return svg(W, H, g);
 }
 
-// 1.1.2 全体形状図（背面土砂・盛土勾配・仮想背面）
-export function overallFig(geom, { beta = 0, Df = 0 }) {
+// 地表面標高（たて壁天端 x=xb 基準の折れ線地形）
+function surfY(geom, raise, slopeN, x) {
+  const xb = geom.B1 + geom.t2;
+  if (!(raise > 0 && slopeN > 0)) return geom.H;
+  return geom.H + Math.min(Math.max(x - xb, 0) / slopeN, raise);
+}
+
+// 1.1.2 全体形状図（背面土砂・嵩上げ盛土・仮想背面）
+export function overallFig(geom, { raise = 0, slopeN = 0, Df = 0, Hp = 0 }) {
   const W = 340, H = 250;
-  const b = beta * RAD;
   const bd = body(geom);
-  const slopeH = geom.B3 * Math.tan(b);
-  const topY = geom.H + slopeH;
-  const s = Math.min(150 / topY, 150 / (bd.B + 1));
+  const raised = raise > 0 && slopeN > 0;
+  const topY = geom.H + (raised ? raise : 0);
+  const surfEndX = Math.max(bd.B + 1.2, bd.xb + (raised ? slopeN * raise : 0) + 0.8);
+  const s = Math.min(150 / topY, 250 / (surfEndX + 1));
   const ox = 55, oy = 205;
   const X = (x) => ox + x * s, Y = (y) => oy - y * s;
-  // 背面土砂（かかと版上＋勾配部）
-  const surfEndX = bd.B + 1.2;
-  const surfEndY = geom.H + (surfEndX - bd.xb) * Math.tan(b);
-  let g = P([[bd.xb, geom.t3], [bd.xb, geom.H], [X(surfEndX) > 0 ? surfEndX : surfEndX, surfEndY], [surfEndX, geom.t3]]
-    .map(([x, y]) => [X(x), Y(y)]), 'soil');
+  const sy = (x) => surfY(geom, raise, slopeN, x);
+  // 背面土砂（かかと版上＋嵩上げ部）
+  const surfPts = [[bd.xb, geom.H]];
+  if (raised) surfPts.push([Math.min(bd.xb + slopeN * raise, surfEndX), sy(bd.xb + slopeN * raise)]);
+  surfPts.push([surfEndX, sy(surfEndX)]);
+  let g = P([[bd.xb, geom.t3], ...surfPts, [surfEndX, geom.t3]].map(([x, y]) => [X(x), Y(y)]), 'soil');
   // 躯体
   g += P(bd.pts.map(([x, y]) => [X(x), Y(y)]), 'wall');
   // 前面地盤線（根入れ Df）
   g += L(X(-0.9), Y(Df), X(0), Y(Df), 'ground');
-  // 背面地表線（勾配）
-  g += PL([[X(bd.xb), Y(geom.H)], [X(surfEndX), Y(surfEndY)]], 'ground');
+  // 背面地表線（折れ線）
+  g += PL(surfPts.map(([x, y]) => [X(x), Y(y)]), 'ground');
   // ハッチング（地表面）
   for (let i = 0; i < 6; i++) {
-    const hx = X(bd.xb) + 12 + i * 16;
-    if (hx < X(surfEndX)) { const hy = Y(geom.H + (hx - X(bd.xb)) / s * Math.tan(b)); g += L(hx, hy, hx - 6, hy + 6, 'hatch'); }
+    const hx = bd.xb + 0.25 + i * (surfEndX - bd.xb - 0.4) / 6;
+    g += L(X(hx), Y(sy(hx)), X(hx) - 6, Y(sy(hx)) + 6, 'hatch');
   }
   // 仮想背面（破線）
-  g += L(X(bd.B), Y(0), X(bd.B), Y(topY), 'vbf');
-  g += T(X(bd.B) + 3, Y(topY * 0.55), '仮想背面', 'dtx', 'start');
-  // 盛土勾配ラベル
-  if (beta > 0.1) g += T(X(bd.xb + geom.B3 / 2), Y(geom.H + slopeH / 2) - 6, `β=${fmt3(beta)}°`, 'dtx', 'start');
+  const HpDraw = Hp || sy(bd.B);
+  g += L(X(bd.B), Y(0), X(bd.B), Y(HpDraw), 'vbf');
+  g += T(X(bd.B) + 3, Y(HpDraw * 0.5), '仮想背面', 'dtx', 'start');
+  // 嵩上げ寸法・勾配ラベル
+  if (raised) {
+    g += T(X(bd.xb + slopeN * raise / 2) - 4, Y(geom.H + raise / 2) - 6, `1:${slopeN}`, 'dtx', 'end');
+    g += dim(X(bd.xb + slopeN * raise) + 16, Y(geom.H), X(bd.xb + slopeN * raise) + 16, Y(geom.H + raise), mmv(raise));
+  }
   // 根入れ
   g += dim(X(-0.45), Y(0), X(-0.45), Y(Df), mmv(Df));
   g += dim(X(0), oy + 16, X(bd.B), oy + 16, mmv(bd.B), 5);
@@ -135,30 +147,36 @@ export function wedgeMethodFig(seismic) {
 }
 
 // ケース毎の土圧計算図
-export function caseEpFig(geom, ep, { surcharge = false, beta = 0 }) {
+export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0 }) {
   const W = 320, H = 210;
-  const b = beta * RAD;
   const bd = body(geom);
   const endX = ep.end ? ep.end[0] : bd.B + ep.Hp / Math.tan(ep.omega * RAD);
-  const topY = Math.max(ep.Hp, ep.end ? ep.end[1] : ep.Hp);
+  const raised = raise > 0 && slopeN > 0;
+  const topY = Math.max(ep.Hp, ep.end ? ep.end[1] : ep.Hp, geom.H + (raised ? raise : 0));
   const s = Math.min(140 / topY, 250 / (endX + 0.5));
   const ox = 55, oy = 178;
   const X = (x) => ox + x * s, Y = (y) => oy - y * s;
+  const sy = (x) => surfY(geom, raise, slopeN, x);
   // くさび土砂
   let g = P((ep.poly && ep.poly.length ? ep.poly : [[bd.B, 0], [bd.B, ep.Hp], [endX, ep.Hp]]).map(([x, y]) => [X(x), Y(y)]), 'soil');
   // 躯体
   g += P(bd.pts.map(([x, y]) => [X(x), Y(y)]), 'wall');
   // 仮想背面
   g += L(X(bd.B), Y(0), X(bd.B), Y(ep.Hp), 'vbf');
-  // 地表面（勾配）
-  g += L(X(bd.xb), Y(geom.H), X(endX + 0.3), Y(geom.H + (endX + 0.3 - bd.xb) * Math.tan(b)), 'ground');
+  // 地表面（折れ線）
+  const sEnd = endX + 0.3;
+  const surfPts = [[bd.xb, geom.H]];
+  if (raised && bd.xb + slopeN * raise < sEnd) surfPts.push([bd.xb + slopeN * raise, geom.H + raise]);
+  surfPts.push([sEnd, sy(sEnd)]);
+  g += PL(surfPts.map(([x, y]) => [X(x), Y(y)]), 'ground');
   // すべり線
   g += L(X(bd.B), Y(0), X(ep.end[0]), Y(ep.end[1]), 'slip');
   g += T(Math.min(X(ep.end[0]) + 4, W - 30), Y(ep.end[1]) + 14, `ω=${ep.omega.toFixed(1)}°`, 'dtx', 'start');
   // 活荷重
   if (surcharge) {
-    for (let x = X(bd.xb) + 6; x <= X(endX); x += 15) g += L(x, Y(ep.Hp) - 14, x, Y(ep.Hp) - 3, 'arrow');
-    g += T(X((bd.xb + endX) / 2), Y(ep.Hp) - 19, '活荷重', 'sym');
+    const yq = Y(sy(endX));
+    for (let x = X(bd.B) + 6; x <= X(endX); x += 15) g += L(x, yq - 14, x, yq - 3, 'arrow');
+    g += T(X((bd.B + endX) / 2), yq - 19, '活荷重', 'sym');
   }
   // 土圧合力
   g += L(X(bd.B) + 2, Y(ep.Hp / 3), X(bd.B) - 34, Y(ep.Hp / 3), 'arrow');
