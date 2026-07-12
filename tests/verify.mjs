@@ -151,6 +151,29 @@ console.log('◆ 嵩上げ盛土（勾配1:n・嵩上げ高さ）');
 }
 
 // ---------------------------------------------------------------
+console.log('◆ 落差（負の嵩上げ高さ: 土砂面が天端より低いレベル地形）');
+{
+  // raise=-0.5 → H'=2.5。常時PA = 1/2・γ・H'²・Ka + Ka・q・H' (β=0, δ=0, Ka=1/3)
+  const d = defaultInput();
+  d.backfill.raise = -0.5;
+  const r = compute(d);
+  const c0 = r.cases[0];
+  eq('落差 H′ = H + raise', r.Hp, 2.5, 1e-9);
+  eq('落差 常時PA', c0.ep.PA, 0.5 * 19 * 2.5 * 2.5 / 3 + (1 / 3) * 10 * 2.5, 0.05);
+  // 背面土砂の矩形部: γ・B3・(H′−t3) = 19・2・2.0 = 76
+  const rect = r.soil.find((p) => p.name.includes('矩形'));
+  eq('落差 背面土砂重量', rect.V, 19 * 2 * 2.0, 0.001);
+  // たて壁土圧作用高 = H′ − t3 = 2.0
+  eq('落差 たて壁土圧高', c0.member.stem.ep.Hp, 2.0, 1e-9);
+  // 単調性: 落差 < レベル < 嵩上げ
+  const paDrop = c0.ep.PA;
+  const paLevel = compute(defaultInput()).cases[0].ep.PA;
+  ok('落差でPA減少', paDrop < paLevel);
+  // 地震時・判定にNaNなし
+  ok('落差ケース NaNなし', r.cases.every((c) => isFinite(c.sum.V) && isFinite(c.sum.e) && isFinite(c.bearing.qmax)));
+}
+
+// ---------------------------------------------------------------
 console.log('◆ 衝突荷重（衝突時ケース）');
 {
   const base = compute(defaultInput());

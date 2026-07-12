@@ -10,6 +10,7 @@ export function selfWeight(geom, gammaConcrete, bodyLength) {
 
 // かかと版上の背面土砂（矩形部＋嵩上げ盛土部）
 // 嵩上げ盛土: たて壁天端(x=xb)から勾配1:nで嵩上げ高さraiseまで立ち上がり、その先レベル
+// raise < 0 は落差（土砂面標高 = H + raise のレベル地形）
 export function soilParts(geom, backfill, gamma, L) {
   const { h, xb, B } = dims(geom);
   const { B3, t3, H } = geom;
@@ -17,8 +18,12 @@ export function soilParts(geom, backfill, gamma, L) {
   const n = backfill?.slopeN || 0;
   const parts = [];
   if (B3 <= 1e-9) return parts;
-  // 矩形部（t3〜H, 幅B3）
-  parts.push({ name: '背面土砂(矩形部)', V: gamma * B3 * h * L, x: xb + B3 / 2, y: t3 + h / 2, mass: true });
+  // 矩形部（t3〜土砂面, 幅B3。落差時は高さを控除）
+  const hRect = Math.max(h + Math.min(raise, 0), 0);
+  if (hRect > 1e-9) {
+    parts.push({ name: '背面土砂(矩形部)', V: gamma * B3 * hRect * L, x: xb + B3 / 2, y: t3 + hRect / 2, mass: true });
+  }
+  if (raise < 0) return parts;
   // 嵩上げ盛土部（かかと版上のy>Hの土砂）
   if (raise > 1e-9 && n > 0) {
     const xBreak = n * raise; // xbからの折れ点距離

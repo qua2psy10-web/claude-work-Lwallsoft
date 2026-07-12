@@ -51,7 +51,9 @@ function validate(m) {
   if (!(g.B3 >= 0)) errs.push('かかと版長 B3 は 0 以上としてください。');
   if (!(g.B1 + g.t2 + g.B3 > 0)) errs.push('底版幅が 0 です。');
   if (!(m.soil.phi > 0 && m.soil.phi < 60)) errs.push('せん断抵抗角 φ は 0〜60度 の範囲としてください。');
-  if (m.backfill.raise < 0) errs.push('嵩上げ高さは 0 以上としてください。');
+  if (m.backfill.raise < 0 && !(g.H + m.backfill.raise > g.t3)) {
+    errs.push('落差（負の嵩上げ高さ）が大きすぎます。背面土砂面（H＋嵩上げ高さ）は底版天端（t3）より上としてください。');
+  }
   if (m.backfill.raise > 0 && !(m.backfill.slopeN > 0)) {
     errs.push('嵩上げ時は法面勾配 1:n の n を正の値としてください。');
   }
