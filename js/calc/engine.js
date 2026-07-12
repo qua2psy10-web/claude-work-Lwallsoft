@@ -16,13 +16,15 @@ export function compute(input) {
   const L = input.lengths.base;
 
   // 嵩上げ盛土（たて壁天端から勾配1:nで嵩上げ高さraiseまで、以降レベル）
+  // raise < 0 は落差（背面土砂面が天端より低いレベル地形、土砂面標高 = H + raise）
   const raise = input.backfill?.raise || 0;
   const slopeN = input.backfill?.slopeN || 0;
   const raised = raise > 1e-9 && slopeN > 0;
+  const drop = raise < -1e-9 ? -raise : 0;                  // 天端からの落差高さ
   const beta = raised ? Math.atan(1 / slopeN) / RAD : 0;    // 法面傾斜角（度）
   // 仮想背面高さ H' と、仮想背面天端より上の残り嵩上げ高さ
   const riseAtVbf = raised ? Math.min(geom.B3 / slopeN, raise) : 0;
-  const Hp0 = geom.H + riseAtVbf;
+  const Hp0 = geom.H + riseAtVbf - drop;
   const riseRem = raised ? raise - riseAtVbf : 0;
   // 仮想背面の壁面摩擦角 δ＝仮想背面位置の地表面勾配（レベル到達済みなら0、上限φ）
   const deltaVbf = riseRem > 1e-9 ? Math.min(beta, input.soil.phi) : 0;
@@ -113,14 +115,15 @@ export function compute(input) {
 
       // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力＋背面水圧
       const deltaStem = input.soil.deltaStem * input.soil.phi;
-      const hwStem = useWater ? Math.min(Math.max(hwB - geom.t3, 0), h) : 0; // たて壁付け根からの背面水位
+      const hStem = h - drop;   // たて壁背面の土圧作用高（落差分を控除）
+      const hwStem = useWater ? Math.min(Math.max(hwB - geom.t3, 0), hStem) : 0; // たて壁付け根からの背面水位
       const eps = trialWedge({
-        Hp: h, gamma, gammaSub: input.soil.gammaSub, waterLevel: hwStem,
+        Hp: hStem, gamma, gammaSub: input.soil.gammaSub, waterLevel: hwStem,
         phi: input.soil.phi, delta: deltaStem,
         c: cCoh, kh, q, precision: input.epCondition.precision,
         rise: raised ? raise : 0, slopeN,
       }, xb);
-      let Ms = eps.PAH * h / 3, Ss = eps.PAH;
+      let Ms = eps.PAH * hStem / 3, Ss = eps.PAH;
       if (hwStem > 0) {
         const PWs = 0.5 * gammaW * hwStem * hwStem;   // たて壁背面の静水圧
         Ms += PWs * hwStem / 3;
@@ -160,7 +163,7 @@ export function compute(input) {
         for (let i = 0; i < n; i++) {
           const x = xb + (i + 0.5) * geom.B3 / n, dx = geom.B3 / n;
           const over = raised ? Math.min((x - xb) / slopeN, raise) : 0; // 嵩上げ盛土の上載高
-          const soilCol = gamma * (h + over);
+          const soilCol = gamma * (h - drop + over);
           const w = soilCol + q + gammaC * geom.t3 - reactionAt(reaction, x) - upliftAt(upCase, x);
           Mh += w * (x - xb) * dx; Sh += w * dx;
         }
@@ -184,7 +187,7 @@ export function compute(input) {
     input, dims: { h, xb, B }, Hp: Hp0, gammaC,
     self, soil, soilV, soilVy, collision: col,
     water: { on: waterOn, upliftOn, front: hwF, back: hwB, up, wpBack, wpFront },
-    backfill: { raise, slopeN, raised, beta, riseRem, deltaVbf },
+    backfill: { raise, slopeN, raised, drop, beta, riseRem, deltaVbf },
     cases,
   };
 }

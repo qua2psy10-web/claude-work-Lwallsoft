@@ -62,11 +62,12 @@ export function buildBlocks(r) {
 
   b.sub('全体形状');
   {
-    const items = [['背面土砂形状', bf.raised ? '盛土（嵩上げ）' : 'レベル']];
+    const items = [['背面土砂形状', bf.raised ? '盛土（嵩上げ）' : bf.drop > 0 ? 'レベル（天端から落差）' : 'レベル']];
     if (bf.raised) {
       items.push(['嵩上げ高さ', `${fmt3(bf.raise)} (m)`]);
       items.push(['法面勾配', `1:${fmt2(bf.slopeN)}　（法面傾斜角 β = ${fmt3(bf.beta)} 度）`]);
     }
+    if (bf.drop > 0) items.push(['擁壁天端からの落差高さ', `${fmt3(bf.drop)} (m)`]);
     items.push(['根入れ深さ Df', `${fmt3(geom.Df)} (m)`]);
     items.push(['仮想背面高さ H′', `${fmt3(r.Hp)} (m)`]);
     items.push(['水位の有無', waterOn ? '有り' : '無し']);

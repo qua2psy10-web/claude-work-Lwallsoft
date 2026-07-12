@@ -66,9 +66,10 @@ export function sectionFig(geom) {
   return svg(W, H, g);
 }
 
-// 地表面標高（たて壁天端 x=xb 基準の折れ線地形）
+// 地表面標高（たて壁天端 x=xb 基準の折れ線地形。raise<0 は落差レベル）
 function surfY(geom, raise, slopeN, x) {
   const xb = geom.B1 + geom.t2;
+  if (raise < 0) return geom.H + raise;
   if (!(raise > 0 && slopeN > 0)) return geom.H;
   return geom.H + Math.min(Math.max(x - xb, 0) / slopeN, raise);
 }
@@ -92,8 +93,8 @@ export function overallFig(geom, { raise = 0, slopeN = 0, Df = 0, Hp = 0, wFront
   const ox = 55, oy = 205;
   const X = (x) => ox + x * s, Y = (y) => oy - y * s;
   const sy = (x) => surfY(geom, raise, slopeN, x);
-  // 背面土砂（かかと版上＋嵩上げ部）
-  const surfPts = [[bd.xb, geom.H]];
+  // 背面土砂（かかと版上＋嵩上げ部。落差時は天端より低いレベル）
+  const surfPts = [[bd.xb, sy(bd.xb)]];
   if (raised) surfPts.push([Math.min(bd.xb + slopeN * raise, surfEndX), sy(bd.xb + slopeN * raise)]);
   surfPts.push([surfEndX, sy(surfEndX)]);
   let g = P([[bd.xb, geom.t3], ...surfPts, [surfEndX, geom.t3]].map(([x, y]) => [X(x), Y(y)]), 'soil');
@@ -174,9 +175,9 @@ export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0, 
   g += P(bd.pts.map(([x, y]) => [X(x), Y(y)]), 'wall');
   // 仮想背面
   g += L(X(bd.B), Y(0), X(bd.B), Y(ep.Hp), 'vbf');
-  // 地表面（折れ線）
+  // 地表面（折れ線。落差時は天端より低いレベル）
   const sEnd = endX + 0.3;
-  const surfPts = [[bd.xb, geom.H]];
+  const surfPts = [[bd.xb, sy(bd.xb)]];
   if (raised && bd.xb + slopeN * raise < sEnd) surfPts.push([bd.xb + slopeN * raise, geom.H + raise]);
   surfPts.push([sEnd, sy(sEnd)]);
   g += PL(surfPts.map(([x, y]) => [X(x), Y(y)]), 'ground');
