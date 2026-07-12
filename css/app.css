@@ -1,0 +1,102 @@
+/* 画面UI */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  font-size: 13px;
+  background: #4b5563;
+  color: #111;
+}
+
+#app {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: 100vh;
+}
+
+/* ---- 入力パネル ---- */
+#panel {
+  background: #f4f5f7;
+  border-right: 1px solid #cbd1d8;
+  overflow-y: auto;
+  padding: 0 0 40px;
+}
+#panel header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: #1f2937;
+  color: #fff;
+  padding: 10px 14px;
+}
+#panel header h1 { font-size: 15px; margin: 0 0 2px; }
+#panel header .sub { font-size: 11px; opacity: .75; }
+
+.toolbar {
+  position: sticky;
+  top: 52px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #e6e9ed;
+  border-bottom: 1px solid #cbd1d8;
+  flex-wrap: wrap;
+}
+.toolbar button, .toolbar select {
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid #94a0ad;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+}
+.toolbar button.primary { background: #2563eb; color: #fff; border-color: #1d4ed8; }
+.toolbar button:hover { filter: brightness(0.96); }
+
+fieldset {
+  border: none;
+  border-top: 1px solid #d7dbe0;
+  margin: 0;
+  padding: 10px 14px 12px;
+}
+fieldset legend {
+  font-weight: bold;
+  font-size: 12.5px;
+  color: #1f2937;
+  padding: 8px 0 2px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  margin: 4px 0;
+  gap: 6px;
+}
+.row label { flex: 1; color: #333; }
+.row input[type="number"], .row input[type="text"], .row select {
+  width: 130px;
+  padding: 3px 6px;
+  border: 1px solid #aab4bf;
+  border-radius: 3px;
+  font-size: 12.5px;
+}
+.row input.wide { width: 100%; }
+.row .unit { width: 52px; color: #667; font-size: 11px; }
+.row input[type="checkbox"] { width: auto; }
+.grp { margin-left: 10px; padding-left: 8px; border-left: 3px solid #d7dbe0; }
+.grp.disabled, .row.disabled { opacity: .45; pointer-events: none; }
+
+/* ---- プレビュー ---- */
+#preview {
+  overflow: auto;
+  padding: 18px;
+}
+#report-area { transform-origin: top center; }
+.status {
+  color: #e5e7eb;
+  font-size: 12px;
+  margin: 0 0 10px;
+  text-align: center;
+}
+.status .ngmark { color: #fca5a5; font-weight: bold; }

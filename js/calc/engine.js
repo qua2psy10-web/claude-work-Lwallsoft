@@ -1,0 +1,140 @@
+// 全荷重ケースの一括計算（L型擁壁）
+import { dims } from './geometry.js';
+import { trialWedge } from './earthPressure.js';
+import { selfWeight, soilParts, surchargePart, aggregate, groundReaction, reactionAt } from './forces.js';
+import { checkOverturn, checkSliding, checkBearing } from './stability.js';
+import { memberCheck, rebarAs } from './member.js';
+import { generateCases } from '../model.js';
+
+const RAD = Math.PI / 180;
+
+export function compute(input) {
+  const geom = input.geometry;
+  const { h, xb, B } = dims(geom);
+  const gammaC = input.concrete.gammaC;
+  const gamma = input.soil.gamma;
+  const L = input.lengths.base;
+  const beta = geom.beta;
+  const Hp0 = geom.H + geom.B3 * Math.tan(beta * RAD); // 仮想背面高さ
+
+  const self = selfWeight(geom, gammaC, input.lengths.body);
+  const soil = soilParts(geom, gamma, L);
+  const soilV = soil.reduce((s, p) => s + p.V, 0);
+  const soilVy = soil.reduce((s, p) => s + p.V * p.y, 0);
+
+  const caseDefs = generateCases(input);
+  const cases = caseDefs.map((cd) => {
+    const kh = cd.seismic ? input.seismic.kh : 0;
+    const q = cd.surcharge ? input.surcharge.q : 0;
+    const cCoh = cd.seismic ? input.soil.cE : input.soil.c;
+
+    // --- 主働土圧（仮想背面, δ=β） ---
+    const ep = trialWedge({
+      Hp: Hp0, gamma, phi: input.soil.phi, beta, delta: beta,
+      c: cCoh, kh, q, precision: input.epCondition.precision,
+    }, B);
+
+    // --- 作用力行 ---
+    const rows = [];
+    const pushV = (name, V, x) => rows.push({ name, V, Vx: V * x, H: 0, Hy: 0 });
+    pushV('躯体自重', self.V, self.XG);
+    for (const p of soil) pushV(p.name, p.V, p.x);
+    const sur = cd.surcharge ? surchargePart(geom, input.surcharge.q, L) : null;
+    if (sur) pushV(sur.name, sur.V, sur.x);
+    if (kh > 0) {
+      rows.push({ name: '躯体慣性力', V: 0, Vx: 0, H: kh * self.V, Hy: kh * self.V * self.YG });
+      if (soilV > 0) rows.push({ name: '背面土砂慣性力', V: 0, Vx: 0, H: kh * soilV, Hy: kh * soilVy });
+    }
+    rows.push({
+      name: '土圧',
+      V: input.epCondition.considerPv ? ep.PAV : 0,
+      Vx: input.epCondition.considerPv ? ep.MV : 0,
+      H: ep.PAH, Hy: ep.MH,
+    });
+
+    const sum = aggregate(rows, B);
+    const reaction = groundReaction(B, L, sum.e, sum.V, sum.M);
+    const overturn = checkOverturn(sum.e, B, cd.cond.n);
+    const sliding = checkSliding(sum.V, sum.H, sum.e, B, L, input.stability.mu, input.stability.cB, cd.cond.Fs);
+    const bearing = checkBearing(reaction.q1, reaction.q2, cd.cond.qa);
+
+    // --- 部材計算 ---
+    let member = null;
+    if (input.member.calc) {
+      const f = cd.seismic ? input.material.kSeismic : input.material.kNormal;
+      const mat = input.material;
+
+      // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力
+      const deltaStem = input.soil.deltaStem * input.soil.phi;
+      const eps = trialWedge({
+        Hp: h, gamma, phi: input.soil.phi, beta, delta: deltaStem,
+        c: cCoh, kh, q, precision: input.epCondition.precision,
+      }, xb);
+      let Ms = eps.PAH * h / 3, Ss = eps.PAH;
+      // たて壁自重を分解して慣性力モーメントを算定（付け根 y=t3 まわり）
+      const stem = stemParts(geom, gammaC, L);
+      if (kh > 0) {
+        for (const p of stem) { Ms += kh * p.V * (p.y - geom.t3); Ss += kh * p.V; }
+      }
+      const stemAs = rebarAs(input.member.stem.bar, input.member.stem.pitch);
+      const mStem = memberCheck({ M: Ms, S: Ss, t: geom.t2, cover: input.member.stem.cover, As: stemAs, mat, f });
+
+      // つま先版: 地盤反力(上向き) − 底版自重(下向き)。付け根(x=B1)まわり
+      let Mt = 0, St = 0;
+      if (geom.B1 > 1e-9) {
+        const n = 400;
+        for (let i = 0; i < n; i++) {
+          const x = (i + 0.5) * geom.B1 / n, dx = geom.B1 / n;
+          const w = reactionAt(reaction, x) - gammaC * geom.t3;
+          Mt += w * (geom.B1 - x) * dx; St += w * dx;
+        }
+      }
+      const toeAs = rebarAs(input.member.toe.bar, input.member.toe.pitch);
+      const mToe = memberCheck({ M: Mt, S: St, t: geom.t3, cover: input.member.toe.cover, As: toeAs, mat, f });
+
+      // かかと版: 背面土＋活荷重＋底版自重(下向き) − 地盤反力(上向き)。付け根(x=xb)まわり
+      let Mh = 0, Sh = 0;
+      if (geom.B3 > 1e-9) {
+        const n = 400;
+        for (let i = 0; i < n; i++) {
+          const x = xb + (i + 0.5) * geom.B3 / n, dx = geom.B3 / n;
+          const soilCol = gamma * (h + (x - xb) * Math.tan(beta * RAD));
+          const w = soilCol + q + gammaC * geom.t3 - reactionAt(reaction, x);
+          Mh += w * (x - xb) * dx; Sh += w * dx;
+        }
+      }
+      const heelAs = rebarAs(input.member.heel.bar, input.member.heel.pitch);
+      const mHeel = memberCheck({ M: Mh, S: Sh, t: geom.t3, cover: input.member.heel.cover, As: heelAs, mat, f });
+
+      member = {
+        f,
+        stem: { ...mStem, ep: eps, deltaStem, bar: input.member.stem.bar, pitch: input.member.stem.pitch, t: geom.t2 },
+        toe: { ...mToe, bar: input.member.toe.bar, pitch: input.member.toe.pitch, t: geom.t3, len: geom.B1 },
+        heel: { ...mHeel, bar: input.member.heel.bar, pitch: input.member.heel.pitch, t: geom.t3, len: geom.B3 },
+        ok: mStem.ok && (geom.B1 <= 1e-9 || mToe.ok) && (geom.B3 <= 1e-9 || mHeel.ok),
+      };
+    }
+
+    return { ...cd, kh, q, ep, rows, sum, reaction, overturn, sliding, bearing, member };
+  });
+
+  return {
+    input, dims: { h, xb, B }, Hp: Hp0, gammaC,
+    self, soil, soilV, soilVy, beta,
+    cases,
+  };
+}
+
+// たて壁の自重分解（矩形部＋テーパー部）
+function stemParts(geom, gammaC, L) {
+  const h = geom.H - geom.t3;
+  const xb = geom.B1 + geom.t2;
+  const parts = [];
+  // 矩形部（背面側 t1×h）
+  parts.push({ name: 'たて壁(矩形部)', V: gammaC * geom.t1 * h * L, x: xb - geom.t1 / 2, y: geom.t3 + h / 2 });
+  // テーパー部（前面側）
+  if (geom.t2 > geom.t1 + 1e-9) {
+    parts.push({ name: 'たて壁(テーパー部)', V: gammaC * 0.5 * (geom.t2 - geom.t1) * h * L, x: geom.B1 + 2 * (geom.t2 - geom.t1) / 3, y: geom.t3 + h / 3 });
+  }
+  return parts;
+}

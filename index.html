@@ -3,676 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>L型擁壁 設計計算 | Lwallsoft</title>
-<style>
-  :root {
-    --bg: #f4f6f8;
-    --panel: #ffffff;
-    --border: #d8dee4;
-    --text: #1f2933;
-    --sub: #52606d;
-    --accent: #1660a8;
-    --ok: #1a7f37;
-    --ok-bg: #e6f4ea;
-    --ng: #c0392b;
-    --ng-bg: #fdecea;
-    --head-bg: #eef2f6;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.5;
-  }
-  header {
-    background: var(--accent);
-    color: #fff;
-    padding: 10px 20px;
-  }
-  header h1 { margin: 0; font-size: 18px; font-weight: 600; }
-  header p { margin: 2px 0 0; font-size: 12px; opacity: .85; }
-  .layout {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    gap: 16px;
-    padding: 16px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-  @media (max-width: 900px) { .layout { grid-template-columns: 1fr; } }
-  .panel {
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px 16px;
-    margin-bottom: 16px;
-  }
-  .panel h2 {
-    margin: 0 0 10px;
-    font-size: 14px;
-    color: var(--accent);
-    border-bottom: 2px solid var(--accent);
-    padding-bottom: 4px;
-  }
-  .panel h3 { margin: 14px 0 6px; font-size: 13px; color: var(--sub); }
-  .field {
-    display: grid;
-    grid-template-columns: 1fr 86px 64px;
-    align-items: center;
-    gap: 6px;
-    margin: 3px 0;
-  }
-  .field label { font-size: 12.5px; }
-  .field input, .field select {
-    width: 100%;
-    padding: 3px 6px;
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    font-size: 13px;
-    text-align: right;
-    font-family: inherit;
-  }
-  .field select { text-align: left; }
-  .field .unit { font-size: 11.5px; color: var(--sub); }
-  table.res {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12.5px;
-    margin: 6px 0 10px;
-  }
-  table.res th, table.res td {
-    border: 1px solid var(--border);
-    padding: 3px 8px;
-    text-align: right;
-  }
-  table.res th { background: var(--head-bg); font-weight: 600; text-align: center; }
-  table.res td.l { text-align: left; }
-  table.res td.c { text-align: center; }
-  .judge { font-weight: 700; text-align: center; }
-  .ok { color: var(--ok); background: var(--ok-bg); }
-  .ng { color: var(--ng); background: var(--ng-bg); }
-  .summary {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 4px;
-  }
-  .badge {
-    padding: 6px 14px;
-    border-radius: 6px;
-    font-weight: 700;
-    font-size: 13px;
-    border: 1px solid;
-  }
-  .badge.ok { border-color: var(--ok); }
-  .badge.ng { border-color: var(--ng); }
-  #fig { width: 100%; height: auto; display: block; }
-  .note { font-size: 11.5px; color: var(--sub); margin: 4px 0; }
-  .warn { color: var(--ng); font-weight: 600; font-size: 12.5px; }
-  .btnrow { text-align: right; margin-bottom: 8px; }
-  .btnrow button {
-    padding: 6px 16px;
-    border: 1px solid var(--accent);
-    background: #fff;
-    color: var(--accent);
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-  .btnrow button:hover { background: var(--accent); color: #fff; }
-  @media print {
-    body { background: #fff; font-size: 11px; }
-    header { background: #fff; color: #000; border-bottom: 2px solid #000; padding: 4px 0; }
-    .layout { grid-template-columns: 1fr; padding: 0; gap: 8px; }
-    .panel { border: 1px solid #999; break-inside: avoid; margin-bottom: 8px; }
-    .btnrow { display: none; }
-    .field input, .field select { border: none; }
-  }
-</style>
+<title>L型擁壁 設計計算</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/report.css">
 </head>
 <body>
-<header>
-  <h1>L型擁壁 設計計算 &mdash; Lwallsoft</h1>
-  <p>道路土工 擁壁工指針に基づく安定計算(試行くさび法)・部材断面照査(許容応力度法)/ 単位奥行き 1m あたり</p>
-</header>
+<div id="app">
+  <div id="panel">
+    <header>
+      <h1>L型擁壁 設計計算</h1>
+      <div class="sub">道路土工 擁壁工指針 準拠 ／ 試行くさび法（仮想背面）・安定計算・部材照査・計算書出力</div>
+    </header>
+    <div class="toolbar">
+      <select id="preset">
+        <option value="">― プリセット選択 ―</option>
+        <option value="standard">標準 H=3.0m レベル</option>
+        <option value="slope">H=3.0m 盛土勾配1:3</option>
+        <option value="tall">H=5.0m 標準</option>
+        <option value="pureL">逆L型（つま先版なし）</option>
+      </select>
+      <button id="btn-print" class="primary">印刷 / PDF保存</button>
+      <button id="btn-save">入力を保存(JSON)</button>
+      <button id="btn-load">読込</button>
+      <input type="file" id="file-load" accept=".json" style="display:none">
+    </div>
 
-<div class="layout">
-  <aside>
-    <div class="panel">
-      <h2>形状寸法</h2>
-      <div id="sec-geo"></div>
-    </div>
-    <div class="panel">
-      <h2>土質・基礎地盤</h2>
-      <div id="sec-soil"></div>
-    </div>
-    <div class="panel">
-      <h2>材料・許容応力度</h2>
-      <div id="sec-mat"></div>
-    </div>
-    <div class="panel">
-      <h2>荷重</h2>
-      <div id="sec-load"></div>
-    </div>
-    <div class="panel">
-      <h2>配筋(引張側 主鉄筋)</h2>
-      <div id="sec-bar"></div>
-    </div>
-  </aside>
+    <fieldset>
+      <legend>標題</legend>
+      <div class="row"><input type="text" class="wide" data-path="title"></div>
+    </fieldset>
 
-  <main>
-    <div class="btnrow"><button onclick="window.print()">計算書を印刷</button></div>
-    <div class="panel">
-      <h2>総合判定</h2>
-      <div class="summary" id="summary"></div>
-      <div id="warns"></div>
-    </div>
-    <div class="panel">
-      <h2>断面図</h2>
-      <svg id="fig" viewBox="0 0 640 420" xmlns="http://www.w3.org/2000/svg"></svg>
-    </div>
-    <div class="panel">
-      <h2>土圧算定(試行くさび法・仮想背面)</h2>
-      <div id="res-ep"></div>
-      <p class="note">仮想背面(かかと版末端を通る鉛直面、高さ H')に作用する主働土圧。壁面摩擦角 δ=β(地表面勾配)。地震時は載荷重を無視し、くさび重量に慣性力 k<sub>h</sub>・W を考慮。作用高さは H'/3。</p>
-    </div>
-    <div class="panel">
-      <h2>荷重集計(常時)&mdash; つま先版先端まわり</h2>
-      <div id="res-weights"></div>
-    </div>
-    <div class="panel">
-      <h2>安定計算</h2>
-      <div id="res-stab"></div>
-      <p class="note">転倒照査は合力作用位置の偏心量 e による(常時 |e|≦B/6、地震時 |e|≦B/3)。滑動 F<sub>s</sub>=(ΣV・μ+c<sub>B</sub>・B)/ΣH(常時≧1.5、地震時≧1.2)。地盤反力度は e≦B/6 で台形分布、e&gt;B/6 で三角形分布(有効載荷幅 3d)。</p>
-    </div>
-    <div class="panel">
-      <h2>部材断面照査(許容応力度法)</h2>
-      <div id="res-member"></div>
-      <p class="note">単鉄筋長方形断面(b=1000mm、n=15)。たて壁は付け根断面(壁背面土圧+躯体慣性力)、つま先版・かかと版は付け根断面(地盤反力と上載荷重の差し引き)。地震時は許容応力度を 1.5 倍に割増し。</p>
-    </div>
-  </main>
+    <fieldset>
+      <legend>形状寸法（L型擁壁）</legend>
+      <div class="row"><label>擁壁全高 H</label><input type="number" step="0.05" data-path="geometry.H"><span class="unit">m</span></div>
+      <div class="row"><label>たて壁 天端厚 t1</label><input type="number" step="0.05" data-path="geometry.t1"><span class="unit">m</span></div>
+      <div class="row"><label>たて壁 付け根厚 t2</label><input type="number" step="0.05" data-path="geometry.t2"><span class="unit">m</span></div>
+      <div class="row"><label>つま先版長 B1</label><input type="number" step="0.05" data-path="geometry.B1"><span class="unit">m</span></div>
+      <div class="row"><label>かかと版長 B3</label><input type="number" step="0.05" data-path="geometry.B3"><span class="unit">m</span></div>
+      <div class="row"><label>底版厚 t3</label><input type="number" step="0.05" data-path="geometry.t3"><span class="unit">m</span></div>
+      <div class="row"><label>根入れ深さ Df</label><input type="number" step="0.05" data-path="geometry.Df"><span class="unit">m</span></div>
+      <div class="row"><label>盛土勾配 β</label><input type="number" step="1" data-path="geometry.beta"><span class="unit">度</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>土質・基礎地盤</legend>
+      <div class="row"><label>裏込め土 単位体積重量 γ</label><input type="number" step="0.5" data-path="soil.gamma"><span class="unit">kN/m³</span></div>
+      <div class="row"><label>せん断抵抗角 φ</label><input type="number" step="1" data-path="soil.phi"><span class="unit">度</span></div>
+      <div class="row"><label>粘着力 c（常時）</label><input type="number" step="1" data-path="soil.c"><span class="unit">kN/m²</span></div>
+      <div class="row"><label>粘着力 cE（地震時）</label><input type="number" step="1" data-path="soil.cE"><span class="unit">kN/m²</span></div>
+      <div class="row"><label>たて壁計算用 δ = 係数×φ</label><input type="number" step="0.001" data-path="soil.deltaStem"><span class="unit">×φ</span></div>
+      <div class="row"><label>摩擦係数 μ</label><input type="number" step="0.05" data-path="stability.mu"><span class="unit">-</span></div>
+      <div class="row"><label>付着力 cB</label><input type="number" step="1" data-path="stability.cB"><span class="unit">kN/m²</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>コンクリート・材料</legend>
+      <div class="row"><label>鉄筋ｺﾝｸﾘｰﾄ単位体積重量 γc</label><input type="number" step="0.5" data-path="concrete.gammaC"><span class="unit">kN/m³</span></div>
+      <div class="row"><label>設計基準強度 σck</label><input type="number" step="3" data-path="material.sigmaCk"><span class="unit">N/mm²</span></div>
+      <div class="row"><label>許容曲げ圧縮応力度 σca</label><input type="number" step="0.5" data-path="material.sigmaCa"><span class="unit">N/mm²</span></div>
+      <div class="row"><label>許容せん断応力度 τa1</label><input type="number" step="0.01" data-path="material.tauA"><span class="unit">N/mm²</span></div>
+      <div class="row"><label>鉄筋許容引張応力度 σsa</label><input type="number" step="10" data-path="material.sigmaSa"><span class="unit">N/mm²</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>荷重</legend>
+      <div class="row"><label>活荷重を考慮する</label><input type="checkbox" data-path="surcharge.enabled"><span class="unit"></span></div>
+      <div class="grp" id="grp-surcharge">
+        <div class="row"><label>載荷重 q</label><input type="number" step="1" data-path="surcharge.q"><span class="unit">kN/m²</span></div>
+      </div>
+      <div class="row"><label>地震時照査を行う</label><input type="checkbox" data-path="seismic.enabled"><span class="unit"></span></div>
+      <div class="grp" id="grp-seismic">
+        <div class="row"><label>設計水平震度 kh</label><input type="number" step="0.01" data-path="seismic.kh"><span class="unit">-</span></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>安定計算条件</legend>
+      <div class="row"><label>許容偏心量 B/n の n（常時）</label><input type="number" step="0.5" data-path="stability.normal.n"><span class="unit">-</span></div>
+      <div class="row"><label>滑動安全率 Fs（常時）</label><input type="number" step="0.05" data-path="stability.normal.Fs"><span class="unit">-</span></div>
+      <div class="row"><label>許容支持力度 qa（常時）</label><input type="number" step="10" data-path="stability.normal.qa"><span class="unit">kN/m²</span></div>
+      <div class="row"><label>許容偏心量 B/n の n（地震時）</label><input type="number" step="0.5" data-path="stability.seismic.n"><span class="unit">-</span></div>
+      <div class="row"><label>滑動安全率 Fs（地震時）</label><input type="number" step="0.05" data-path="stability.seismic.Fs"><span class="unit">-</span></div>
+      <div class="row"><label>許容支持力度 qa（地震時）</label><input type="number" step="10" data-path="stability.seismic.qa"><span class="unit">kN/m²</span></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>部材計算</legend>
+      <div class="row"><label>部材照査（第5章）を出力する</label><input type="checkbox" data-path="member.calc"><span class="unit"></span></div>
+      <div class="grp" id="grp-member">
+        <div class="row"><label>割増係数（常時）</label><input type="number" step="0.05" data-path="material.kNormal"><span class="unit">-</span></div>
+        <div class="row"><label>割増係数（地震時）</label><input type="number" step="0.05" data-path="material.kSeismic"><span class="unit">-</span></div>
+        <div class="row"><label>たて壁 鉄筋径</label>
+          <select data-path="member.stem.bar"><option>D13</option><option>D16</option><option>D19</option><option>D22</option><option>D25</option><option>D29</option><option>D32</option></select><span class="unit"></span></div>
+        <div class="row"><label>たて壁 ピッチ</label><input type="number" step="25" data-path="member.stem.pitch"><span class="unit">mm</span></div>
+        <div class="row"><label>たて壁 かぶり</label><input type="number" step="5" data-path="member.stem.cover"><span class="unit">mm</span></div>
+        <div class="row"><label>つま先版 鉄筋径</label>
+          <select data-path="member.toe.bar"><option>D13</option><option>D16</option><option>D19</option><option>D22</option><option>D25</option><option>D29</option><option>D32</option></select><span class="unit"></span></div>
+        <div class="row"><label>つま先版 ピッチ</label><input type="number" step="25" data-path="member.toe.pitch"><span class="unit">mm</span></div>
+        <div class="row"><label>つま先版 かぶり</label><input type="number" step="5" data-path="member.toe.cover"><span class="unit">mm</span></div>
+        <div class="row"><label>かかと版 鉄筋径</label>
+          <select data-path="member.heel.bar"><option>D13</option><option>D16</option><option>D19</option><option>D22</option><option>D25</option><option>D29</option><option>D32</option></select><span class="unit"></span></div>
+        <div class="row"><label>かかと版 ピッチ</label><input type="number" step="25" data-path="member.heel.pitch"><span class="unit">mm</span></div>
+        <div class="row"><label>かかと版 かぶり</label><input type="number" step="5" data-path="member.heel.cover"><span class="unit">mm</span></div>
+      </div>
+    </fieldset>
+  </div>
+
+  <div id="preview">
+    <div class="status" id="status"></div>
+    <div id="report-area"></div>
+  </div>
 </div>
-
-<script>
-"use strict";
-
-/* ============================================================
- *  入力定義
- * ============================================================ */
-const FIELDS = [
-  // 形状
-  { sec: "geo", id: "H",   label: "擁壁全高 H",              unit: "m",     def: 3.00, step: 0.05 },
-  { sec: "geo", id: "t1",  label: "たて壁 天端厚 t1",        unit: "m",     def: 0.30, step: 0.05 },
-  { sec: "geo", id: "t2",  label: "たて壁 付け根厚 t2",      unit: "m",     def: 0.50, step: 0.05 },
-  { sec: "geo", id: "B1",  label: "つま先版長 B1",           unit: "m",     def: 0.50, step: 0.05 },
-  { sec: "geo", id: "B3",  label: "かかと版長 B3",           unit: "m",     def: 2.00, step: 0.05 },
-  { sec: "geo", id: "t3",  label: "底版厚 t3",               unit: "m",     def: 0.50, step: 0.05 },
-  { sec: "geo", id: "Df",  label: "根入れ深さ Df",           unit: "m",     def: 0.50, step: 0.05 },
-  { sec: "geo", id: "beta",label: "盛土勾配 β",              unit: "°",     def: 0.0,  step: 1 },
-  // 土質・基礎地盤
-  { sec: "soil", id: "gamma", label: "裏込め土 単位体積重量 γ", unit: "kN/m³", def: 19.0, step: 0.5 },
-  { sec: "soil", id: "phi",   label: "内部摩擦角 φ",            unit: "°",     def: 30.0, step: 1 },
-  { sec: "soil", id: "mu",    label: "底版・地盤の摩擦係数 μ",  unit: "-",     def: 0.60, step: 0.05 },
-  { sec: "soil", id: "cB",    label: "底版・地盤の付着力 cB",   unit: "kN/m²", def: 0.0,  step: 1 },
-  { sec: "soil", id: "qaN",   label: "許容支持力度(常時) qa",   unit: "kN/m²", def: 200,  step: 10 },
-  { sec: "soil", id: "qaE",   label: "許容支持力度(地震時) qa", unit: "kN/m²", def: 300,  step: 10 },
-  // 材料
-  { sec: "mat", id: "gc",    label: "鉄筋ｺﾝｸﾘｰﾄ単位体積重量 γc", unit: "kN/m³", def: 24.5, step: 0.5 },
-  { sec: "mat", id: "sck",   label: "設計基準強度 σck",          unit: "N/mm²", def: 24,   step: 3 },
-  { sec: "mat", id: "sca",   label: "許容曲げ圧縮応力度 σca",    unit: "N/mm²", def: 8.0,  step: 0.5 },
-  { sec: "mat", id: "ta",    label: "許容せん断応力度 τa1",      unit: "N/mm²", def: 0.23, step: 0.01 },
-  { sec: "mat", id: "ssa",   label: "鉄筋許容引張応力度 σsa",    unit: "N/mm²", def: 180,  step: 10 },
-  { sec: "mat", id: "dw",    label: "壁面摩擦角(たて壁) δ",      unit: "×φ",    def: 0.667, step: 0.001 },
-  // 荷重
-  { sec: "load", id: "q",    label: "載荷重 q",              unit: "kN/m²", def: 10.0, step: 1 },
-  { sec: "load", id: "kh",   label: "設計水平震度 kh",       unit: "-",     def: 0.15, step: 0.01 },
-  { sec: "load", id: "quake",label: "地震時照査",            unit: "",      def: 1, type: "select",
-    options: [["1", "する"], ["0", "しない"]] },
-];
-
-const BARS = { "D13": 126.7, "D16": 198.6, "D19": 286.5, "D22": 387.1, "D25": 506.7, "D29": 642.4, "D32": 794.2 };
-
-const MEMBERS = [
-  { id: "stem", label: "たて壁",   defD: "D16", defP: 250, defC: 70 },
-  { id: "toe",  label: "つま先版", defD: "D16", defP: 250, defC: 70 },
-  { id: "heel", label: "かかと版", defD: "D16", defP: 250, defC: 70 },
-];
-
-function buildInputs() {
-  const secs = { geo: [], soil: [], mat: [], load: [] };
-  for (const f of FIELDS) {
-    let ctrl;
-    if (f.type === "select") {
-      const opts = f.options.map(o => `<option value="${o[0]}" ${String(f.def) === o[0] ? "selected" : ""}>${o[1]}</option>`).join("");
-      ctrl = `<select id="in-${f.id}">${opts}</select>`;
-    } else {
-      ctrl = `<input type="number" id="in-${f.id}" value="${f.def}" step="${f.step}">`;
-    }
-    secs[f.sec].push(`<div class="field"><label for="in-${f.id}">${f.label}</label>${ctrl}<span class="unit">${f.unit}</span></div>`);
-  }
-  for (const k of Object.keys(secs)) document.getElementById("sec-" + k).innerHTML = secs[k].join("");
-
-  const barSel = Object.keys(BARS).map(d => `<option value="${d}">${d}</option>`).join("");
-  const rows = MEMBERS.map(m => `
-    <h3>${m.label}</h3>
-    <div class="field"><label>鉄筋径</label><select id="in-${m.id}D">${barSel}</select><span class="unit"></span></div>
-    <div class="field"><label>ピッチ</label><input type="number" id="in-${m.id}P" value="${m.defP}" step="25"><span class="unit">mm</span></div>
-    <div class="field"><label>かぶり(鉄筋中心まで)</label><input type="number" id="in-${m.id}C" value="${m.defC}" step="5"><span class="unit">mm</span></div>
-  `).join("");
-  document.getElementById("sec-bar").innerHTML = rows;
-  for (const m of MEMBERS) document.getElementById(`in-${m.id}D`).value = m.defD;
-
-  document.querySelectorAll("input, select").forEach(el => el.addEventListener("input", recalc));
-}
-
-function val(id) { return parseFloat(document.getElementById("in-" + id).value) || 0; }
-function sval(id) { return document.getElementById("in-" + id).value; }
-
-const RAD = Math.PI / 180;
-function fmt(x, n = 2) {
-  if (!isFinite(x)) return "-";
-  return x.toLocaleString("ja-JP", { minimumFractionDigits: n, maximumFractionDigits: n });
-}
-
-/* ============================================================
- *  土圧:試行くさび法(鉛直な土圧作用面)
- *  Hp: 作用面高さ, beta: 地表面勾配, delta: 壁面摩擦角,
- *  q: 載荷重, kh: 水平震度  (角度はラジアン)
- *  P(ω) = W・{sin(ω-φ)+kh・cos(ω-φ)} / cos(ω-φ-δ)
- * ============================================================ */
-function trialWedge(Hp, gamma, phi, beta, delta, q, kh) {
-  if (Hp <= 0) return { P: 0, omega: 0, W: 0 };
-  const tb = Math.tan(beta);
-  let best = { P: 0, omega: 0, W: 0 };
-  const scan = (from, to, step) => {
-    for (let deg = from; deg <= to; deg += step) {
-      const om = deg * RAD;
-      const tw = Math.tan(om);
-      if (tw <= tb + 1e-9) continue;
-      const L = Hp / (tw - tb);
-      const W = gamma * 0.5 * Hp * L + q * L;
-      const den = Math.cos(om - phi - delta);
-      if (den < 0.02) continue;
-      const P = W * (Math.sin(om - phi) + kh * Math.cos(om - phi)) / den;
-      if (P > best.P) best = { P, omega: om, W };
-    }
-  };
-  scan(Math.max(phi / RAD, beta / RAD) + 0.1, 89.8, 0.1);
-  if (best.P > 0) scan(best.omega / RAD - 0.15, best.omega / RAD + 0.15, 0.005);
-  return best;
-}
-
-/* ============================================================
- *  躯体・土塊の重量(名称, W[kN], x[m]:つま先端から, y[m]:底面から,
- *  mass: 慣性力を考慮する質量か)
- * ============================================================ */
-function bodyParts(g, seismic) {
-  const { H, t1, t2, B1, B3, t3, beta, gamma, gc, q } = g;
-  const h = H - t3;
-  const xb = B1 + t2;           // たて壁背面の位置
-  const B = B1 + t2 + B3;
-  const parts = [];
-  // たて壁(背面側の矩形 t1×h)
-  parts.push({ name: "たて壁(矩形部)", W: gc * t1 * h, x: xb - t1 / 2, y: t3 + h / 2, mass: true });
-  // たて壁(前面テーパー部)
-  if (t2 > t1 + 1e-9) {
-    parts.push({ name: "たて壁(テーパー部)", W: gc * 0.5 * (t2 - t1) * h, x: B1 + 2 * (t2 - t1) / 3, y: t3 + h / 3, mass: true });
-  }
-  // 底版
-  parts.push({ name: "底版", W: gc * B * t3, x: B / 2, y: t3 / 2, mass: true });
-  // かかと版上の土(矩形)
-  if (B3 > 1e-9) {
-    parts.push({ name: "背面土(矩形部)", W: gamma * B3 * h, x: xb + B3 / 2, y: t3 + h / 2, mass: true });
-    // 盛土勾配部(三角形)
-    if (beta > 1e-9) {
-      const hs = B3 * Math.tan(beta);
-      parts.push({ name: "背面土(勾配部)", W: gamma * 0.5 * B3 * hs, x: xb + 2 * B3 / 3, y: H + hs / 3, mass: true });
-    }
-    // 載荷重(常時のみ、質量なし)
-    if (!seismic && q > 0) {
-      parts.push({ name: "載荷重 q×B3", W: q * B3, x: xb + B3 / 2, y: 0, mass: false });
-    }
-  }
-  return parts;
-}
-
-/* ============================================================
- *  1ケース(常時 or 地震時)の安定計算+断面力
- * ============================================================ */
-function computeCase(g, seismic) {
-  const { H, t2, B1, B3, t3, beta, gamma, phi, gc, q, mu, cB } = g;
-  const kh = seismic ? g.kh : 0;
-  const B = B1 + t2 + B3;
-  const xb = B1 + t2;
-  const h = H - t3;
-
-  // --- 土圧(仮想背面) ---
-  const Hp = H + B3 * Math.tan(beta);   // 仮想背面高さ
-  const delta = beta;                    // 壁面摩擦角 δ=β
-  const ep = trialWedge(Hp, gamma, phi, beta, delta, seismic ? 0 : q, kh);
-  const Ph = ep.P * Math.cos(delta);
-  const Pv = ep.P * Math.sin(delta);
-  const yP = Hp / 3;
-
-  // --- 荷重集計(つま先端まわり) ---
-  const parts = bodyParts(g, seismic);
-  let V = 0, Mr = 0, Hf = 0, Mo = 0;
-  for (const p of parts) {
-    V += p.W;
-    Mr += p.W * p.x;
-    if (p.mass && kh > 0) {
-      Hf += kh * p.W;
-      Mo += kh * p.W * p.y;
-    }
-  }
-  V += Pv;
-  Mr += Pv * B;
-  Hf += Ph;
-  Mo += Ph * yP;
-
-  // --- 転倒 ---
-  const d = V > 0 ? (Mr - Mo) / V : NaN;
-  const e = B / 2 - d;
-  const eLim = seismic ? B / 3 : B / 6;
-  const FsOt = Mo > 0 ? Mr / Mo : Infinity;
-
-  // --- 滑動 ---
-  const FsSl = Hf > 0 ? (V * mu + cB * B) / Hf : Infinity;
-  const FsSlReq = seismic ? 1.2 : 1.5;
-
-  // --- 支持(地盤反力度) ---
-  const qa = seismic ? g.qaE : g.qaN;
-  let q1 = NaN, q2 = NaN, tri = false;
-  if (d > 0) {
-    if (Math.abs(e) <= B / 6 + 1e-12) {
-      q1 = V / B * (1 + 6 * e / B);   // つま先側
-      q2 = V / B * (1 - 6 * e / B);   // かかと側
-    } else {
-      tri = true;
-      if (e > 0) { q1 = 2 * V / (3 * d); q2 = 0; }            // つま先側 三角形
-      else       { q2 = 2 * V / (3 * (B - d)); q1 = 0; }      // かかと側 三角形
-    }
-  }
-  const qmax = Math.max(q1 || 0, q2 || 0);
-
-  // 地盤反力度 分布関数 q(x) [x: つま先端から]
-  const qAt = (x) => {
-    if (!(d > 0)) return 0;
-    if (!tri) return q1 + (q2 - q1) * x / B;
-    if (e > 0) { const w = 3 * d; return x <= w ? q1 * (1 - x / w) : 0; }
-    const w = 3 * (B - d);
-    return x >= B - w ? q2 * (1 - (B - x) / w) : 0;
-  };
-
-  // --- 部材断面力 ---
-  // たて壁:壁背面(高さ h)に作用する土圧 + 躯体慣性力
-  const dw = g.dw * phi;   // 壁面摩擦角(コンクリート面)
-  const eps = trialWedge(h, gamma, phi, beta, dw, seismic ? 0 : q, kh);
-  const PhS = eps.P * Math.cos(dw);
-  let Ms = PhS * h / 3, Ss = PhS;
-  if (kh > 0) {
-    for (const p of parts) {
-      if (p.name.startsWith("たて壁")) { Ms += kh * p.W * (p.y - t3); Ss += kh * p.W; }
-    }
-  }
-
-  // つま先版:上向き地盤反力 − 自重(数値積分、付け根 x=B1 まわり)
-  let Mt = 0, St = 0;
-  if (B1 > 1e-9) {
-    const n = 200;
-    for (let i = 0; i < n; i++) {
-      const x = (i + 0.5) * B1 / n, dx = B1 / n;
-      const w = qAt(x) - gc * t3;                 // 上向き正
-      Mt += w * (B1 - x) * dx;
-      St += w * dx;
-    }
-  }
-
-  // かかと版:下向き(土+載荷重+自重) − 上向き地盤反力(付け根 x=xb まわり)
-  let Mh = 0, Sh = 0;
-  if (B3 > 1e-9) {
-    const n = 200;
-    for (let i = 0; i < n; i++) {
-      const x = xb + (i + 0.5) * B3 / n, dx = B3 / n;
-      const soil = gamma * (h + (x - xb) * Math.tan(beta));
-      const w = soil + (seismic ? 0 : q) + gc * t3 - qAt(x);   // 下向き正
-      Mh += w * (x - xb) * dx;
-      Sh += w * dx;
-    }
-  }
-
-  return {
-    seismic, kh, B, Hp, delta, ep, Ph, Pv, yP, parts,
-    V, Hf, Mr, Mo, d, e, eLim, FsOt, FsSl, FsSlReq,
-    qa, q1, q2, qmax, tri, qAt,
-    member: {
-      stem: { M: Ms, S: Ss, t: t2 },
-      toe:  { M: Mt, S: St, t: t3 },
-      heel: { M: Mh, S: Sh, t: t3 },
-    },
-    epStem: eps, PhS,
-  };
-}
-
-/* ============================================================
- *  RC単鉄筋長方形断面の応力度照査(n=15, b=1000mm)
- * ============================================================ */
-function rcCheck(M, S, t, cover, As, seismic, g) {
-  const b = 1000, n = 15;
-  const d = t * 1000 - cover;
-  const f = seismic ? 1.5 : 1.0;
-  if (M <= 0 || As <= 0 || d <= 0) {
-    return { d, As, sc: 0, ss: 0, tau: Math.abs(S) * 1e3 / (b * 0.875 * d),
-             sca: g.sca * f, ssa: g.ssa * f, ta: g.ta * f, noBend: true };
-  }
-  const p = As / (b * d);
-  const k = Math.sqrt(2 * n * p + (n * p) ** 2) - n * p;
-  const j = 1 - k / 3;
-  const sc = 2 * M * 1e6 / (k * j * b * d * d);
-  const ss = M * 1e6 / (As * j * d);
-  const tau = Math.abs(S) * 1e3 / (b * j * d);
-  return { d, As, k, j, sc, ss, tau, sca: g.sca * f, ssa: g.ssa * f, ta: g.ta * f };
-}
-
-/* ============================================================
- *  メイン再計算
- * ============================================================ */
-function gatherInputs() {
-  const g = {};
-  for (const f of FIELDS) {
-    if (f.type === "select") g[f.id] = parseFloat(sval(f.id));
-    else g[f.id] = val(f.id);
-  }
-  g.beta *= RAD;
-  g.phi *= RAD;
-  for (const m of MEMBERS) {
-    g[m.id + "As"] = BARS[sval(m.id + "D")] * 1000 / Math.max(val(m.id + "P"), 1);
-    g[m.id + "C"] = val(m.id + "C");
-    g[m.id + "Dname"] = sval(m.id + "D");
-    g[m.id + "P"] = val(m.id + "P");
-  }
-  return g;
-}
-
-function recalc() {
-  const g = gatherInputs();
-  const warns = [];
-  if (g.H <= g.t3) warns.push("擁壁全高 H は底版厚 t3 より大きくしてください。");
-  if (g.t2 < g.t1) warns.push("付け根厚 t2 は天端厚 t1 以上としてください。");
-  if (g.beta >= g.phi) warns.push("盛土勾配 β が内部摩擦角 φ 以上のため土圧が算定できません。");
-  document.getElementById("warns").innerHTML = warns.map(w => `<p class="warn">⚠ ${w}</p>`).join("");
-  if (warns.length) {
-    document.getElementById("summary").innerHTML = `<span class="badge ng">入力エラー</span>`;
-    return;
-  }
-
-  const useE = g.quake === 1 && g.kh > 0;
-  const cases = [computeCase(g, false)];
-  if (useE) cases.push(computeCase(g, true));
-
-  drawFigure(g);
-  renderEp(g, cases);
-  renderWeights(g, cases[0]);
-  const stabOk = renderStability(g, cases);
-  const memOk = renderMembers(g, cases);
-
-  const badge = (label, ok) => `<span class="badge ${ok ? "ok" : "ng"}">${label}:${ok ? "OK" : "NG"}</span>`;
-  document.getElementById("summary").innerHTML =
-    badge("転倒", stabOk.ot) + badge("滑動", stabOk.sl) + badge("支持", stabOk.br) + badge("部材", memOk);
-}
-
-/* ============================================================
- *  結果表示
- * ============================================================ */
-function caseName(c) { return c.seismic ? `地震時 (kh=${fmt(c.kh, 2)})` : "常時"; }
-
-function renderEp(g, cases) {
-  let html = `<table class="res"><tr><th>ケース</th><th>H' (m)</th><th>δ (°)</th><th>すべり角 ω (°)</th><th>土圧合力 P (kN/m)</th><th>水平 Ph (kN/m)</th><th>鉛直 Pv (kN/m)</th><th>作用高 y (m)</th></tr>`;
-  for (const c of cases) {
-    html += `<tr><td class="l">${caseName(c)}</td><td>${fmt(c.Hp)}</td><td>${fmt(c.delta / RAD, 1)}</td><td>${fmt(c.ep.omega / RAD, 2)}</td><td>${fmt(c.ep.P)}</td><td>${fmt(c.Ph)}</td><td>${fmt(c.Pv)}</td><td>${fmt(c.yP)}</td></tr>`;
-  }
-  html += `</table>`;
-  document.getElementById("res-ep").innerHTML = html;
-}
-
-function renderWeights(g, c) {
-  let html = `<table class="res"><tr><th>項目</th><th>鉛直力 W (kN/m)</th><th>アーム x (m)</th><th>モーメント W・x (kN・m/m)</th></tr>`;
-  let sw = 0, sm = 0;
-  for (const p of c.parts) {
-    html += `<tr><td class="l">${p.name}</td><td>${fmt(p.W)}</td><td>${fmt(p.x, 3)}</td><td>${fmt(p.W * p.x)}</td></tr>`;
-    sw += p.W; sm += p.W * p.x;
-  }
-  html += `<tr><td class="l">土圧鉛直成分 Pv</td><td>${fmt(c.Pv)}</td><td>${fmt(c.B, 3)}</td><td>${fmt(c.Pv * c.B)}</td></tr>`;
-  sw += c.Pv; sm += c.Pv * c.B;
-  html += `<tr><th class="l">合計 ΣV, ΣMr</th><th>${fmt(sw)}</th><th>-</th><th>${fmt(sm)}</th></tr></table>`;
-  document.getElementById("res-weights").innerHTML = html;
-}
-
-function renderStability(g, cases) {
-  const ok = { ot: true, sl: true, br: true };
-  let html = `<table class="res">
-    <tr><th>ケース</th><th>ΣV (kN/m)</th><th>ΣH (kN/m)</th><th>Mr (kN・m/m)</th><th>Mo (kN・m/m)</th>
-    <th>d (m)</th><th>e (m)</th><th>許容 e (m)</th><th>転倒</th></tr>`;
-  for (const c of cases) {
-    const j = Math.abs(c.e) <= c.eLim && c.d > 0;
-    if (!j) ok.ot = false;
-    html += `<tr><td class="l">${caseName(c)}</td><td>${fmt(c.V)}</td><td>${fmt(c.Hf)}</td><td>${fmt(c.Mr)}</td><td>${fmt(c.Mo)}</td><td>${fmt(c.d, 3)}</td><td>${fmt(c.e, 3)}</td><td>${fmt(c.eLim, 3)}</td><td class="judge ${j ? "ok" : "ng"}">${j ? "OK" : "NG"}</td></tr>`;
-  }
-  html += `</table>`;
-
-  html += `<table class="res"><tr><th>ケース</th><th>滑動抵抗 (kN/m)</th><th>ΣH (kN/m)</th><th>Fs</th><th>必要 Fs</th><th>滑動</th></tr>`;
-  for (const c of cases) {
-    const res = c.V * g.mu + g.cB * c.B;
-    const j = c.FsSl >= c.FsSlReq;
-    if (!j) ok.sl = false;
-    html += `<tr><td class="l">${caseName(c)}</td><td>${fmt(res)}</td><td>${fmt(c.Hf)}</td><td>${isFinite(c.FsSl) ? fmt(c.FsSl) : "∞"}</td><td>${fmt(c.FsSlReq)}</td><td class="judge ${j ? "ok" : "ng"}">${j ? "OK" : "NG"}</td></tr>`;
-  }
-  html += `</table>`;
-
-  html += `<table class="res"><tr><th>ケース</th><th>分布</th><th>q1 つま先側 (kN/m²)</th><th>q2 かかと側 (kN/m²)</th><th>qmax (kN/m²)</th><th>許容 qa (kN/m²)</th><th>支持</th></tr>`;
-  for (const c of cases) {
-    const j = c.d > 0 && c.qmax <= c.qa;
-    if (!j) ok.br = false;
-    html += `<tr><td class="l">${caseName(c)}</td><td class="c">${c.tri ? "三角形" : "台形"}</td><td>${fmt(c.q1)}</td><td>${fmt(c.q2)}</td><td>${fmt(c.qmax)}</td><td>${fmt(c.qa)}</td><td class="judge ${j ? "ok" : "ng"}">${j ? "OK" : "NG"}</td></tr>`;
-  }
-  html += `</table>`;
-  document.getElementById("res-stab").innerHTML = html;
-  return ok;
-}
-
-function renderMembers(g, cases) {
-  let allOk = true;
-  let html = "";
-  for (const m of MEMBERS) {
-    const len = m.id === "toe" ? g.B1 : (m.id === "heel" ? g.B3 : g.H - g.t3);
-    if (len <= 1e-9) {
-      html += `<h3>${m.label}</h3><p class="note">部材なし(長さ 0)のため照査を省略します。</p>`;
-      continue;
-    }
-    const As = g[m.id + "As"];
-    html += `<h3>${m.label} &mdash; ${g[m.id + "Dname"]}@${fmt(g[m.id + "P"], 0)} (As=${fmt(As, 0)} mm²/m, d=${fmt(g[m.id === "stem" ? "t2" : "t3"] * 1000 - g[m.id + "C"], 0)} mm)</h3>`;
-    html += `<table class="res"><tr><th>ケース</th><th>M (kN・m/m)</th><th>S (kN/m)</th>
-      <th>σc (N/mm²)</th><th>σca</th><th>σs (N/mm²)</th><th>σsa</th><th>τ (N/mm²)</th><th>τa1</th><th>判定</th></tr>`;
-    for (const c of cases) {
-      const f = c.member[m.id];
-      const r = rcCheck(f.M, f.S, f.t, g[m.id + "C"], As, c.seismic, g);
-      const j = r.sc <= r.sca && r.ss <= r.ssa && r.tau <= r.ta;
-      if (!j) allOk = false;
-      html += `<tr><td class="l">${caseName(c)}</td><td>${fmt(f.M)}</td><td>${fmt(f.S)}</td>
-        <td>${fmt(r.sc)}</td><td>${fmt(r.sca)}</td><td>${fmt(r.ss, 1)}</td><td>${fmt(r.ssa, 0)}</td>
-        <td>${fmt(r.tau, 3)}</td><td>${fmt(r.ta, 3)}</td><td class="judge ${j ? "ok" : "ng"}">${j ? "OK" : "NG"}</td></tr>`;
-    }
-    html += `</table>`;
-  }
-  document.getElementById("res-member").innerHTML = html;
-  return allOk;
-}
-
-/* ============================================================
- *  断面図(SVG)
- * ============================================================ */
-function drawFigure(g) {
-  const svg = document.getElementById("fig");
-  const { H, t1, t2, B1, B3, t3, Df, beta } = g;
-  const B = B1 + t2 + B3;
-  const xb = B1 + t2;
-  const slopeH = B3 * Math.tan(beta);
-  const extra = Math.max(1.0, B * 0.25);
-  const wReal = B + 2 * extra;
-  const hReal = Math.max(H + slopeH + extra * Math.tan(beta), H) + 0.8;
-  const W = 640, Hpx = 420, pad = 34;
-  const s = Math.min((W - 2 * pad) / wReal, (Hpx - 2 * pad) / hReal);
-  const x0 = pad + extra * s, y0 = Hpx - pad;
-  const X = (x) => x0 + x * s;
-  const Y = (y) => y0 - y * s;
-
-  const el = [];
-  const gx2 = B + extra, gy2 = H + (B + extra - xb) * Math.tan(beta);
-  // 背面土(かかと版上+勾配部)を塗る
-  el.push(`<polygon points="${X(xb)},${Y(t3)} ${X(xb)},${Y(H)} ${X(gx2)},${Y(gy2)} ${X(gx2)},${Y(0)} ${X(B)},${Y(0)} ${X(B)},${Y(t3)}" fill="#e8dcc8" stroke="#b09a72" stroke-width="1"/>`);
-  // 前面地盤(根入れ)
-  el.push(`<polygon points="${X(-extra)},${Y(Df)} ${X(0)},${Y(Df)} ${X(0)},${Y(0)} ${X(-extra)},${Y(0)}" fill="#e8dcc8" stroke="#b09a72" stroke-width="1"/>`);
-  // 地表線
-  el.push(`<line x1="${X(-extra)}" y1="${Y(Df)}" x2="${X(0)}" y2="${Y(Df)}" stroke="#7a6a48" stroke-width="2"/>`);
-  el.push(`<line x1="${X(xb)}" y1="${Y(H)}" x2="${X(gx2)}" y2="${Y(gy2)}" stroke="#7a6a48" stroke-width="2"/>`);
-  // 躯体
-  const body = [
-    [0, 0], [0, t3], [B1, t3],
-    [B1 + (t2 - t1), H], [xb, H], [xb, t3],
-    [B, t3], [B, 0],
-  ].map(p => `${X(p[0])},${Y(p[1])}`).join(" ");
-  el.push(`<polygon points="${body}" fill="#c3cdd6" stroke="#37424c" stroke-width="2"/>`);
-  // 仮想背面(破線)
-  el.push(`<line x1="${X(B)}" y1="${Y(0)}" x2="${X(B)}" y2="${Y(H + slopeH)}" stroke="#c0392b" stroke-width="1.5" stroke-dasharray="6 4"/>`);
-  el.push(`<text x="${X(B) + 4}" y="${Y((H + slopeH) * 0.65)}" font-size="11" fill="#c0392b">仮想背面</text>`);
-
-  // 寸法線ヘルパ
-  const dim = (x1, y1, x2, y2, label, off = 14, vert = false) => {
-    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
-    let t = `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#555" stroke-width="1" marker-start="url(#ar)" marker-end="url(#ar)"/>`;
-    if (vert) t += `<text x="${mx - 4}" y="${my}" font-size="11" fill="#333" text-anchor="middle" transform="rotate(-90 ${mx - 4} ${my})">${label}</text>`;
-    else t += `<text x="${mx}" y="${my - 4}" font-size="11" fill="#333" text-anchor="middle">${label}</text>`;
-    return t;
-  };
-  const dl = Y(0) + 16;
-  if (B1 > 0) el.push(dim(X(0), dl, X(B1), dl, `B1=${fmt(B1)}`));
-  el.push(dim(X(B1), dl, X(xb), dl, `t2=${fmt(t2)}`));
-  el.push(dim(X(xb), dl, X(B), dl, `B3=${fmt(B3)}`));
-  el.push(dim(X(0), dl + 18, X(B), dl + 18, `B=${fmt(B)}`));
-  el.push(dim(X(0) - 16, Y(0), X(0) - 16, Y(H), `H=${fmt(H)}`, 14, true));
-  el.push(dim(X(B) + 30, Y(0), X(B) + 30, Y(t3), `t3=${fmt(t3)}`, 14, true));
-  el.push(`<text x="${X(xb - t1 / 2)}" y="${Y(H) - 6}" font-size="11" fill="#333" text-anchor="middle">t1=${fmt(t1)}</text>`);
-  if (beta > 0) el.push(`<text x="${X(xb + B3 / 2)}" y="${Y(H + slopeH / 2) - 8}" font-size="11" fill="#7a6a48">β=${fmt(beta / RAD, 1)}°</text>`);
-  el.push(`<text x="${X(-extra / 2)}" y="${Y(Df) - 6}" font-size="11" fill="#7a6a48" text-anchor="middle">Df=${fmt(Df)}</text>`);
-
-  svg.innerHTML = `<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,4 L8,1 L8,7 z" fill="#555"/></marker></defs>` + el.join("");
-}
-
-buildInputs();
-recalc();
-</script>
+<script type="module" src="js/main.js"></script>
 </body>
 </html>
