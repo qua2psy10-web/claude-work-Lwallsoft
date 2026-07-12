@@ -24,6 +24,8 @@ function syncForm() {
   }
   $('#grp-surcharge').classList.toggle('disabled', !model.surcharge.enabled);
   $('#grp-seismic').classList.toggle('disabled', !model.seismic.enabled);
+  $('#grp-collision').classList.toggle('disabled', !model.collision.enabled);
+  $('#grp-collision-cond').classList.toggle('disabled', !model.collision.enabled);
   $('#grp-member').classList.toggle('disabled', !model.member.calc);
 }
 
@@ -50,6 +52,8 @@ function validate(m) {
   if (!(m.soil.phi > 0 && m.soil.phi < 60)) errs.push('せん断抵抗角 φ は 0〜60度 の範囲としてください。');
   if (g.beta >= m.soil.phi) errs.push('盛土勾配 β が せん断抵抗角 φ 以上のため土圧が算定できません。');
   if (g.beta < 0) errs.push('盛土勾配 β は 0 以上としてください。');
+  if (m.collision.enabled && !(m.collision.P >= 0)) errs.push('衝突荷重 P は 0 以上としてください。');
+  if (m.collision.enabled && !(m.collision.h >= 0)) errs.push('衝突荷重の作用高さ h は 0 以上としてください。');
   return errs;
 }
 

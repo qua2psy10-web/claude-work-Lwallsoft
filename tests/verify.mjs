@@ -111,6 +111,41 @@ console.log('◆ 盛土勾配（β>0 で土圧増加）');
 }
 
 // ---------------------------------------------------------------
+console.log('◆ 衝突荷重（衝突時ケース）');
+{
+  const base = compute(defaultInput());
+  const inp = defaultInput();
+  inp.collision.enabled = true;
+  inp.collision.P = 10;
+  inp.collision.h = 3.0;
+  const r = compute(inp);
+  ok('ケース数+1', r.cases.length === base.cases.length + 1);
+  const cc = r.cases[r.cases.length - 1];
+  ok('衝突ケース名', cc.name === '衝突時');
+  // 衝突時は活荷重なし → 常時(活荷重なし)と比較
+  const inpN = defaultInput();
+  inpN.surcharge.enabled = false;
+  const cN = compute(inpN).cases[0];
+  eq('衝突時 ΣH = 常時(活荷重なし)H + P・L', cc.sum.H, cN.sum.H + 10 * 1.0, 0.01);
+  eq('衝突時 ΣH・y増分 = P・L・h', cc.sum.Hy - cN.sum.Hy, 10 * 1.0 * 3.0, 0.01);
+  eq('衝突時 ΣV = 常時(活荷重なし)V', cc.sum.V, cN.sum.V, 0.01);
+  eq('衝突時 Fs条件', cc.cond.Fs, 1.2, 1e-9);
+  // 部材: 割増係数1.5、たて壁に衝突荷重が加算される
+  eq('衝突時 σsa割増1.5', cc.member.stem.sigmaSa, 180 * 1.5, 1e-6);
+  eq('たて壁S増分 = P', cc.member.stem.S - cN.member.stem.S, 10, 0.01);
+  eq('たて壁M増分 = P・(h−t3)', cc.member.stem.M - cN.member.stem.M, 10 * (3.0 - 0.5), 0.01);
+  // 既存ケースへの影響なし
+  eq('既存ケースV不変', r.cases[0].sum.V, base.cases[0].sum.V, 1e-9);
+  eq('既存ケースH不変', r.cases[0].sum.H, base.cases[0].sum.H, 1e-9);
+  // 作用高さが底版内(h<t3)ならたて壁断面力に算入しない
+  const inp2 = defaultInput();
+  inp2.collision.enabled = true;
+  inp2.collision.h = 0.3;
+  const cc2 = compute(inp2).cases[compute(inp2).cases.length - 1];
+  eq('h<t3ならたて壁S不変', cc2.member.stem.S, cN.member.stem.S, 0.01);
+}
+
+// ---------------------------------------------------------------
 console.log('◆ 全プリセットで例外・NaNが発生しないこと');
 {
   for (const [name, fn] of Object.entries(presets)) {

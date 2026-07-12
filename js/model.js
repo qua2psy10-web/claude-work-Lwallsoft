@@ -38,6 +38,12 @@ export function defaultInput() {
       kh: 0.15,     // 設計水平震度
       levelName: 'レベル1地震時',
     },
+    collision: {
+      enabled: false,  // 衝突荷重を考慮した「衝突時」ケースを追加する
+      name: '衝突荷重',
+      P: 10.0,         // 衝突荷重 (kN/m) 壁延長1mあたり
+      h: 3.0,          // 作用高さ (m) 底版下面から
+    },
     epCondition: {
       method: '試行くさび法（仮想背面）',
       precision: 0.005,   // 収束精度 (度)
@@ -50,6 +56,7 @@ export function defaultInput() {
       allowEccMethod: 'B/n',
       normal: { n: 6.0, Fs: 1.5, qa: 200.0 },
       seismic: { n: 3.0, Fs: 1.2, qa: 300.0 },
+      collision: { n: 3.0, Fs: 1.2, qa: 300.0 },
     },
     material: {
       sigmaCk: 24,     // 設計基準強度 (N/mm2)
@@ -98,9 +105,16 @@ export const presets = {
     d.geometry.B3 = 2.30;
     return d;
   },
+  collision: () => {
+    const d = defaultInput();
+    d.title = 'L型擁壁 H=3.0m 衝突荷重考慮';
+    d.collision.enabled = true;
+    return d;
+  },
 };
 
-// 荷重ケース生成: 常時（活荷重考慮時は活荷重載荷）、地震時（地震チェック時）
+// 荷重ケース生成: 常時（活荷重考慮時は活荷重載荷）、地震時（地震チェック時）、
+// 衝突時（衝突荷重チェック時。常時土圧＋衝突荷重、活荷重なしの慣行に従う）
 export function generateCases(input) {
   const cases = [];
   const lc = input.surcharge.enabled;
@@ -114,6 +128,13 @@ export function generateCases(input) {
     cases.push({
       no: no++, name: '地震時',
       seismic: true, surcharge: false, cond: input.stability.seismic,
+    });
+  }
+  if (input.collision?.enabled) {
+    cases.push({
+      no: no++, name: '衝突時',
+      seismic: false, surcharge: false, collision: true,
+      cond: input.stability.collision || input.stability.seismic,
     });
   }
   return cases;
