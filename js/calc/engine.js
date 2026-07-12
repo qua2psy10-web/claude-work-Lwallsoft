@@ -1,7 +1,7 @@
 // 全荷重ケースの一括計算（L型擁壁）
 import { dims } from './geometry.js';
 import { trialWedge } from './earthPressure.js';
-import { selfWeight, soilParts, surchargePart, aggregate, groundReaction, reactionAt } from './forces.js';
+import { selfWeight, soilParts, surchargePart, aggregate, groundReaction, reactionAt, uplift, waterPressure, upliftAt } from './forces.js';
 import { checkOverturn, checkSliding, checkBearing } from './stability.js';
 import { memberCheck, rebarAs } from './member.js';
 import { generateCases } from '../model.js';
@@ -32,6 +32,16 @@ export function compute(input) {
   const soilV = soil.reduce((s, p) => s + p.V, 0);
   const soilVy = soil.reduce((s, p) => s + p.V * p.y, 0);
 
+  // 水位・揚圧力・静水圧（浮力考慮ケースで作用）
+  const waterOn = !!input.water?.enabled;
+  const gammaW = input.soil.gammaW;
+  const hwF = waterOn ? Math.max(input.water.front, 0) : 0;   // 前面水位
+  const hwB = waterOn ? Math.max(input.water.back, 0) : 0;    // 背面水位
+  const upliftOn = waterOn && input.water.considerUplift !== false;
+  const up = upliftOn ? uplift(gammaW, hwF, hwB, B, L) : null;
+  const wpBack = waterOn && hwB > 0 ? waterPressure(gammaW, hwB, L, +1) : null;
+  const wpFront = waterOn && hwF > 0 ? waterPressure(gammaW, hwF, L, -1) : null;
+
   // 衝突荷重（土圧と同方向の水平集中荷重 H = P・L）
   const col = input.collision?.enabled
     ? {
@@ -47,10 +57,13 @@ export function compute(input) {
     const kh = cd.seismic ? input.seismic.kh : 0;
     const q = cd.surcharge ? input.surcharge.q : 0;
     const cCoh = cd.seismic ? input.soil.cE : input.soil.c;
+    const useWater = !!cd.water;
 
-    // --- 主働土圧（仮想背面, δ=地表面勾配） ---
+    // --- 主働土圧（仮想背面, δ=地表面勾配。水位以下は水中単位体積重量） ---
     const ep = trialWedge({
-      Hp: Hp0, gamma, phi: input.soil.phi, delta: deltaVbf,
+      Hp: Hp0, gamma, gammaSub: input.soil.gammaSub,
+      waterLevel: useWater ? hwB : 0,
+      phi: input.soil.phi, delta: deltaVbf,
       c: cCoh, kh, q, precision: input.epCondition.precision,
       rise: riseRem, slopeN,
     }, B);
@@ -69,12 +82,21 @@ export function compute(input) {
     if (cd.collision && col) {
       rows.push({ name: col.name, V: 0, Vx: 0, H: col.H, Hy: col.Hy });
     }
+    if (useWater && up) {
+      rows.push({ name: '揚圧力', V: up.UP, Vx: up.UP * up.XG, H: 0, Hy: 0 });
+    }
     rows.push({
       name: '土圧',
       V: input.epCondition.considerPv ? ep.PAV : 0,
       Vx: input.epCondition.considerPv ? ep.MV : 0,
       H: ep.PAH, Hy: ep.MH,
     });
+    if (useWater && (wpBack || wpFront)) {
+      let PW = 0, PWY = 0;
+      if (wpBack) { PW += wpBack.PW; PWY += wpBack.PWYG; }
+      if (wpFront) { PW += wpFront.PW; PWY += wpFront.PWYG; }
+      rows.push({ name: '水圧', V: 0, Vx: 0, H: PW, Hy: PWY });
+    }
 
     const sum = aggregate(rows, B);
     const reaction = groundReaction(B, L, sum.e, sum.V, sum.M);
@@ -89,14 +111,21 @@ export function compute(input) {
       const f = cd.seismic || cd.collision ? input.material.kSeismic : input.material.kNormal;
       const mat = input.material;
 
-      // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力
+      // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力＋背面水圧
       const deltaStem = input.soil.deltaStem * input.soil.phi;
+      const hwStem = useWater ? Math.min(Math.max(hwB - geom.t3, 0), h) : 0; // たて壁付け根からの背面水位
       const eps = trialWedge({
-        Hp: h, gamma, phi: input.soil.phi, delta: deltaStem,
+        Hp: h, gamma, gammaSub: input.soil.gammaSub, waterLevel: hwStem,
+        phi: input.soil.phi, delta: deltaStem,
         c: cCoh, kh, q, precision: input.epCondition.precision,
         rise: raised ? raise : 0, slopeN,
       }, xb);
       let Ms = eps.PAH * h / 3, Ss = eps.PAH;
+      if (hwStem > 0) {
+        const PWs = 0.5 * gammaW * hwStem * hwStem;   // たて壁背面の静水圧
+        Ms += PWs * hwStem / 3;
+        Ss += PWs;
+      }
       // たて壁自重を分解して慣性力モーメントを算定（付け根 y=t3 まわり）
       const stem = stemParts(geom, gammaC, L);
       if (kh > 0) {
@@ -110,13 +139,14 @@ export function compute(input) {
       const stemAs = rebarAs(input.member.stem.bar, input.member.stem.pitch);
       const mStem = memberCheck({ M: Ms, S: Ss, t: geom.t2, cover: input.member.stem.cover, As: stemAs, mat, f });
 
-      // つま先版: 地盤反力(上向き) − 底版自重(下向き)。付け根(x=B1)まわり
+      // つま先版: 地盤反力＋揚圧力(上向き) − 底版自重(下向き)。付け根(x=B1)まわり
+      const upCase = useWater ? up : null;
       let Mt = 0, St = 0;
       if (geom.B1 > 1e-9) {
         const n = 400;
         for (let i = 0; i < n; i++) {
           const x = (i + 0.5) * geom.B1 / n, dx = geom.B1 / n;
-          const w = reactionAt(reaction, x) - gammaC * geom.t3;
+          const w = reactionAt(reaction, x) + upliftAt(upCase, x) - gammaC * geom.t3;
           Mt += w * (geom.B1 - x) * dx; St += w * dx;
         }
       }
@@ -131,7 +161,7 @@ export function compute(input) {
           const x = xb + (i + 0.5) * geom.B3 / n, dx = geom.B3 / n;
           const over = raised ? Math.min((x - xb) / slopeN, raise) : 0; // 嵩上げ盛土の上載高
           const soilCol = gamma * (h + over);
-          const w = soilCol + q + gammaC * geom.t3 - reactionAt(reaction, x);
+          const w = soilCol + q + gammaC * geom.t3 - reactionAt(reaction, x) - upliftAt(upCase, x);
           Mh += w * (x - xb) * dx; Sh += w * dx;
         }
       }
@@ -153,6 +183,7 @@ export function compute(input) {
   return {
     input, dims: { h, xb, B }, Hp: Hp0, gammaC,
     self, soil, soilV, soilVy, collision: col,
+    water: { on: waterOn, upliftOn, front: hwF, back: hwB, up, wpBack, wpFront },
     backfill: { raise, slopeN, raised, beta, riseRem, deltaVbf },
     cases,
   };

@@ -25,11 +25,19 @@ export function defaultInput() {
     },
     lengths: { body: 1.0, base: 1.0 }, // 躯体延長・底版延長 (m)
     soil: {
-      gamma: 19.0,  // 裏込め土 単位体積重量 (kN/m3)
-      phi: 30.0,    // せん断抵抗角 (度)
-      c: 0.0,       // 粘着力 常時 (kN/m2)
-      cE: 0.0,      // 粘着力 地震時 (kN/m2)
+      gamma: 19.0,    // 裏込め土 湿潤単位体積重量 (kN/m3)
+      gammaSub: 9.2,  // 裏込め土 水中単位体積重量 (kN/m3)
+      gammaW: 9.8,    // 水の単位体積重量 (kN/m3)
+      phi: 30.0,      // せん断抵抗角 (度)
+      c: 0.0,         // 粘着力 常時 (kN/m2)
+      cE: 0.0,        // 粘着力 地震時 (kN/m2)
       deltaStem: 0.6667, // たて壁計算用 壁面摩擦角 δ = 係数×φ
+    },
+    water: {
+      enabled: false,       // 水位を考慮する
+      considerUplift: true, // 浮力考慮ケースで揚圧力を作用させる
+      front: 0.5,           // 前面水位 (m) 底版下面から
+      back: 1.5,            // 背面水位 (m) 底版下面から
     },
     surcharge: {
       enabled: true,
@@ -115,29 +123,39 @@ export const presets = {
     d.collision.enabled = true;
     return d;
   },
+  water: () => {
+    const d = defaultInput();
+    d.title = 'L型擁壁 H=3.0m 水位・揚圧力考慮';
+    d.water.enabled = true;
+    d.water.front = 0.5;
+    d.water.back = 1.5;
+    return d;
+  },
 };
 
-// 荷重ケース生成: 常時（活荷重考慮時は活荷重載荷）、地震時（地震チェック時）、
-// 衝突時（衝突荷重チェック時。常時土圧＋衝突荷重、活荷重なしの慣行に従う）
+// 荷重ケース生成: 常時（活荷重考慮時は活荷重載荷、水位考慮時は浮力考慮）、
+// 地震時（地震チェック時。浮力無視の慣行に従う）、
+// 衝突時（衝突荷重チェック時。常時土圧＋衝突荷重、活荷重なし・浮力無視の慣行に従う）
 export function generateCases(input) {
   const cases = [];
   const lc = input.surcharge.enabled;
+  const wt = !!input.water?.enabled;
   let no = 1;
   cases.push({
     no: no++,
-    name: lc ? '常時＋活荷重（全面載荷）' : '常時',
-    seismic: false, surcharge: lc, cond: input.stability.normal,
+    name: (lc ? '常時＋活荷重（全面載荷）' : '常時') + (wt ? ' 浮力考慮' : ''),
+    seismic: false, surcharge: lc, water: wt, cond: input.stability.normal,
   });
   if (input.seismic.enabled && input.seismic.kh > 0) {
     cases.push({
-      no: no++, name: '地震時',
-      seismic: true, surcharge: false, cond: input.stability.seismic,
+      no: no++, name: wt ? '地震時 浮力無視' : '地震時',
+      seismic: true, surcharge: false, water: false, cond: input.stability.seismic,
     });
   }
   if (input.collision?.enabled) {
     cases.push({
-      no: no++, name: '衝突時',
-      seismic: false, surcharge: false, collision: true,
+      no: no++, name: wt ? '衝突時 浮力無視' : '衝突時',
+      seismic: false, surcharge: false, collision: true, water: false,
       cond: input.stability.collision || input.stability.seismic,
     });
   }

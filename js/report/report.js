@@ -1,6 +1,6 @@
 // 計算結果 → A4帳票（L型擁壁の設計計算書）
 import { fmt3, fmt2, fmt1, table, kvTable, bullets, formula, legend, frac, judge, para, subTitle, esc } from './blocks.js';
-import { sectionFig, overallFig, wedgeMethodFig, caseEpFig, omegaPaGraph, reactionFig, rebarSecFig } from './figures.js';
+import { sectionFig, overallFig, wedgeMethodFig, caseEpFig, omegaPaGraph, reactionFig, rebarSecFig, upliftFig } from './figures.js';
 
 class Builder {
   constructor() { this.blocks = []; this.c = [0, 0, 0, 0]; }
@@ -30,6 +30,8 @@ export function buildBlocks(r) {
   const geom = inp.geometry;
   const seismic = inp.seismic.enabled && inp.seismic.kh > 0;
   const collisionOn = !!inp.collision?.enabled;
+  const waterOn = r.water.on;
+  const upliftOn = r.water.upliftOn;
   const mem = inp.member.calc;
   const B = r.dims.B;
   const bf = r.backfill;
@@ -67,9 +69,15 @@ export function buildBlocks(r) {
     }
     items.push(['根入れ深さ Df', `${fmt3(geom.Df)} (m)`]);
     items.push(['仮想背面高さ H′', `${fmt3(r.Hp)} (m)`]);
+    items.push(['水位の有無', waterOn ? '有り' : '無し']);
+    if (waterOn) {
+      items.push(['前面水位（底版下面から）', `${fmt3(r.water.front)} (m)`]);
+      items.push(['背面水位（底版下面から）', `${fmt3(r.water.back)} (m)`]);
+      items.push(['揚圧力', upliftOn ? '考慮する' : '考慮しない']);
+    }
     b.add(bullets(items));
   }
-  b.add(`<div class="rpt-figwrap">${overallFig(geom, { raise: bf.raise, slopeN: bf.slopeN, Df: geom.Df, Hp: r.Hp })}</div>`);
+  b.add(`<div class="rpt-figwrap">${overallFig(geom, { raise: bf.raise, slopeN: bf.slopeN, Df: geom.Df, Hp: r.Hp, wFront: waterOn ? r.water.front : 0, wBack: waterOn ? r.water.back : 0 })}</div>`);
 
   b.sec('準拠指針');
   b.add(para(`　　${esc(inp.guideline)}`));
@@ -77,10 +85,16 @@ export function buildBlocks(r) {
   b.sec('土砂条件');
   {
     const rows = [
-      ['裏込め土 単位体積重量', 'γ', fmt3(inp.soil.gamma), 'kN/m3'],
+      ['裏込め土 湿潤単位体積重量', 'γ', fmt3(inp.soil.gamma), 'kN/m3'],
+    ];
+    if (waterOn) {
+      rows.push(['裏込め土 水中単位体積重量', "γ'", fmt3(inp.soil.gammaSub), 'kN/m3']);
+      rows.push(['水の単位体積重量', 'γw', fmt3(inp.soil.gammaW), 'kN/m3']);
+    }
+    rows.push(
       ['せん断抵抗角', 'φ', fmt3(inp.soil.phi), '度'],
       ['粘着力 (常　時)', 'c', fmt3(inp.soil.c), 'kN/m2'],
-    ];
+    );
     if (seismic) rows.push(['粘着力 (地震時)', 'cE', fmt3(inp.soil.cE), 'kN/m2']);
     rows.push(['壁面摩擦角（仮想背面）', 'δ', 'β（地表面勾配）', '度']);
     if (mem) rows.push(['壁面摩擦角（たて壁計算用）', 'δm', `${fmt3(inp.soil.deltaStem)}×φ`, '度']);
@@ -93,6 +107,8 @@ export function buildBlocks(r) {
     ['活荷重', inp.surcharge.enabled ? '考慮する' : '考慮しない'],
     ['地震時照査', seismic ? '行う' : '行わない'],
     ['衝突荷重', collisionOn ? '考慮する' : '考慮しない'],
+    ['水位', waterOn ? '考慮する' : '考慮しない'],
+    ['揚圧力', !waterOn ? '-（水位無し）' : upliftOn ? '考慮する' : '考慮しない'],
   ]));
   if (seismic) { b.sub('設計水平震度'); b.add(table([['', 'kh']], [[inp.seismic.levelName, fmt2(inp.seismic.kh)]])); }
   b.sub('主働土圧条件');
@@ -165,6 +181,10 @@ export function buildBlocks(r) {
       ['慣性力', ...r.cases.map((c) => (c.seismic ? '○' : '-'))],
       ['活荷重', ...r.cases.map((c) => (c.surcharge ? '○' : '-'))],
       ...(collisionOn ? [['衝突荷重', ...r.cases.map((c) => (c.collision ? '○' : '-'))]] : []),
+      ...(waterOn ? [
+        ['水位（浮力）', ...r.cases.map((c) => (c.water ? '考慮' : '無視'))],
+        ['揚圧力', ...r.cases.map((c) => (c.water && upliftOn ? '○' : '-'))],
+      ] : []),
       ['許容偏心量 B/n の n', ...r.cases.map((c) => fmt2(c.cond.n))],
       ['滑動安全率 Fs', ...r.cases.map((c) => fmt2(c.cond.Fs))],
       ['許容支持力度 qa', ...r.cases.map((c) => fmt2(c.cond.qa))],
@@ -272,6 +292,38 @@ export function buildBlocks(r) {
     ));
   }
 
+  if (waterOn && upliftOn && r.water.up) {
+    const up = r.water.up;
+    b.sec('揚圧力');
+    b.add(para('　揚圧力は底版下面に台形分布で作用するものとし、次の計算式を用います。'));
+    b.add(formula(
+      '<div>uP1＝ − γw・HW1　　　　uP2＝ − γw・HW2</div>' +
+      `<div>UP ＝ ${frac('uP1 + uP2', '2')}・B・L</div>` +
+      `<div>XG ＝ ${frac('B(uP1 + 2uP2)', '3(uP1 + uP2)')}</div>`,
+    ));
+    b.add(legend([
+      ['UP', '揚圧力 (kN)'], ['XG', '揚圧力の重心位置（つま先端から） (m)'],
+      ['uP1', '底版前面端の揚圧力強度 (kN/m2)'], ['uP2', '底版背面端の揚圧力強度 (kN/m2)'],
+      ['HW1', '底版下面から前面水位までの高さ (m)'], ['HW2', '底版下面から背面水位までの高さ (m)'],
+      ['B', '底版幅 (m)'], ['L', '底版延長 (m)'], ['γw', '水の単位体積重量 (kN/m3)'],
+    ]));
+    b.add(`<div class="rpt-figwrap">${upliftFig(up)}</div>`);
+    b.add(table(
+      [['項目', 'uP1<br>(kN/m2)', 'uP2<br>(kN/m2)', 'B<br>(m)', 'L<br>(m)', 'UP<br>(kN)', 'XG<br>(m)', 'UP・XG<br>(kN・m)']],
+      [['揚圧力', fmt3(up.uP1), fmt3(up.uP2), fmt3(up.B), fmt3(up.L), fmt3(up.UP), fmt3(up.XG), fmt3(up.UPXG)]],
+    ));
+  }
+
+  if (waterOn && (r.water.wpBack || r.water.wpFront)) {
+    b.sec('水圧');
+    b.add(para('　静水圧 PW = 1/2・γw・Hw²・L を作用高さ Hw/3 に作用させます（背面: 土圧と同方向、前面: 抵抗側）。'));
+    const rows = [];
+    if (r.water.wpBack) rows.push(['背面水圧', fmt3(r.water.wpBack.Hw), fmt3(r.water.wpBack.pw), fmt3(r.water.wpBack.PW), fmt3(r.water.wpBack.YG), fmt3(r.water.wpBack.PWYG)]);
+    if (r.water.wpFront) rows.push(['前面水圧', fmt3(r.water.wpFront.Hw), fmt3(r.water.wpFront.pw), fmt3(r.water.wpFront.PW), fmt3(r.water.wpFront.YG), fmt3(r.water.wpFront.PWYG)]);
+    b.add(table([['種類', 'Hw<br>(m)', 'pw<br>(kN/m2)', 'PW<br>(kN)', 'YG<br>(m)', 'PW・YG<br>(kN・m)']], rows));
+    b.add(para('　　注）背面水位以下の土圧算定には水中単位体積重量 γ′ を用います。', 'note'));
+  }
+
   b.sec('土圧');
   b.sub('計算方法');
   b.add(para('　　仮想背面（かかと版末端を通る鉛直面）に作用する主働土圧を試行くさび法で求めます。地表面は嵩上げ盛土（勾配1:n→レベル）の折れ線に対応し、壁面摩擦角 δ は仮想背面位置の地表面勾配とします。'));
@@ -294,7 +346,7 @@ export function buildBlocks(r) {
   b.sub('土圧の計算');
   r.cases.forEach((c, i) => {
     b.add(para(`(${i + 1}) ${esc(c.name)}`, 'case-head'), { keepNext: true });
-    b.add(`<div class="rpt-figwrap">${caseEpFig(geom, c.ep, { surcharge: c.surcharge, raise: bf.raise, slopeN: bf.slopeN })}</div>`);
+    b.add(`<div class="rpt-figwrap">${caseEpFig(geom, c.ep, { surcharge: c.surcharge, raise: bf.raise, slopeN: bf.slopeN, waterBack: c.water ? r.water.back : 0 })}</div>`);
     b.add(table(
       [['H′<br>(m)', 'ω<br>(度)', 'W<br>(kN/m)', 'PA<br>(kN/m)', 'PAV<br>(kN/m)', 'PAH<br>(kN/m)', '作用高 Y<br>(m)']],
       [[fmt3(c.ep.Hp), fmt3(c.ep.omega), fmt3(c.ep.W), fmt3(c.ep.PA), fmt3(c.ep.PAV), fmt3(c.ep.PAH), fmt3(c.ep.Y)]],

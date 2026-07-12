@@ -23,6 +23,7 @@
         <option value="tall">H=5.0m 標準</option>
         <option value="pureL">逆L型（つま先版なし）</option>
         <option value="collision">H=3.0m 衝突荷重考慮</option>
+        <option value="water">H=3.0m 水位・揚圧力考慮</option>
       </select>
       <button id="btn-print" class="primary">印刷 / PDF保存</button>
       <button id="btn-save">入力を保存(JSON)</button>
@@ -54,7 +55,9 @@
 
     <fieldset>
       <legend>土質・基礎地盤</legend>
-      <div class="row"><label>裏込め土 単位体積重量 γ</label><input type="number" step="0.5" data-path="soil.gamma"><span class="unit">kN/m³</span></div>
+      <div class="row"><label>裏込め土 湿潤単位体積重量 γ</label><input type="number" step="0.5" data-path="soil.gamma"><span class="unit">kN/m³</span></div>
+      <div class="row"><label>裏込め土 水中単位体積重量 γ'</label><input type="number" step="0.1" data-path="soil.gammaSub"><span class="unit">kN/m³</span></div>
+      <div class="row"><label>水の単位体積重量 γw</label><input type="number" step="0.1" data-path="soil.gammaW"><span class="unit">kN/m³</span></div>
       <div class="row"><label>せん断抵抗角 φ</label><input type="number" step="1" data-path="soil.phi"><span class="unit">度</span></div>
       <div class="row"><label>粘着力 c（常時）</label><input type="number" step="1" data-path="soil.c"><span class="unit">kN/m²</span></div>
       <div class="row"><label>粘着力 cE（地震時）</label><input type="number" step="1" data-path="soil.cE"><span class="unit">kN/m²</span></div>
@@ -86,6 +89,16 @@
       <div class="grp" id="grp-collision">
         <div class="row"><label>衝突荷重 P</label><input type="number" step="0.5" data-path="collision.P"><span class="unit">kN/m</span></div>
         <div class="row"><label>作用高さ h（底版下面から）</label><input type="number" step="0.05" data-path="collision.h"><span class="unit">m</span></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>水位</legend>
+      <div class="row"><label>水位を考慮する</label><input type="checkbox" data-path="water.enabled"><span class="unit"></span></div>
+      <div class="grp" id="grp-water">
+        <div class="row"><label>揚圧力を考慮する</label><input type="checkbox" data-path="water.considerUplift"><span class="unit"></span></div>
+        <div class="row"><label>前面水位（底版下面から）</label><input type="number" step="0.1" data-path="water.front"><span class="unit">m</span></div>
+        <div class="row"><label>背面水位（底版下面から）</label><input type="number" step="0.1" data-path="water.back"><span class="unit">m</span></div>
       </div>
     </fieldset>
 
