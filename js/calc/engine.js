@@ -22,6 +22,16 @@ export function compute(input) {
   const soilV = soil.reduce((s, p) => s + p.V, 0);
   const soilVy = soil.reduce((s, p) => s + p.V * p.y, 0);
 
+  // 衝突荷重（土圧と同方向の水平集中荷重 H = P・L）
+  const col = input.collision?.enabled
+    ? {
+        name: input.collision.name || '衝突荷重',
+        P: input.collision.P, h: input.collision.h, L: input.lengths.body,
+        H: input.collision.P * input.lengths.body,
+        Hy: input.collision.P * input.lengths.body * input.collision.h,
+      }
+    : null;
+
   const caseDefs = generateCases(input);
   const cases = caseDefs.map((cd) => {
     const kh = cd.seismic ? input.seismic.kh : 0;
@@ -45,6 +55,9 @@ export function compute(input) {
       rows.push({ name: '躯体慣性力', V: 0, Vx: 0, H: kh * self.V, Hy: kh * self.V * self.YG });
       if (soilV > 0) rows.push({ name: '背面土砂慣性力', V: 0, Vx: 0, H: kh * soilV, Hy: kh * soilVy });
     }
+    if (cd.collision && col) {
+      rows.push({ name: col.name, V: 0, Vx: 0, H: col.H, Hy: col.Hy });
+    }
     rows.push({
       name: '土圧',
       V: input.epCondition.considerPv ? ep.PAV : 0,
@@ -61,7 +74,8 @@ export function compute(input) {
     // --- 部材計算 ---
     let member = null;
     if (input.member.calc) {
-      const f = cd.seismic ? input.material.kSeismic : input.material.kNormal;
+      // 衝突時は地震時と同じ割増係数を用いる
+      const f = cd.seismic || cd.collision ? input.material.kSeismic : input.material.kNormal;
       const mat = input.material;
 
       // たて壁: 付け根断面。壁背面土圧(高さh, δ=2/3φ)＋たて壁慣性力
@@ -75,6 +89,11 @@ export function compute(input) {
       const stem = stemParts(geom, gammaC, L);
       if (kh > 0) {
         for (const p of stem) { Ms += kh * p.V * (p.y - geom.t3); Ss += kh * p.V; }
+      }
+      // 衝突荷重（たて壁に作用。付け根より上に作用する場合のみ断面力に算入）
+      if (cd.collision && col && col.h > geom.t3) {
+        Ms += col.H * (col.h - geom.t3);
+        Ss += col.H;
       }
       const stemAs = rebarAs(input.member.stem.bar, input.member.stem.pitch);
       const mStem = memberCheck({ M: Ms, S: Ss, t: geom.t2, cover: input.member.stem.cover, As: stemAs, mat, f });
@@ -120,7 +139,7 @@ export function compute(input) {
 
   return {
     input, dims: { h, xb, B }, Hp: Hp0, gammaC,
-    self, soil, soilV, soilVy, beta,
+    self, soil, soilV, soilVy, beta, collision: col,
     cases,
   };
 }

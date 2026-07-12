@@ -22,6 +22,7 @@
         <option value="slope">H=3.0m 盛土勾配1:3</option>
         <option value="tall">H=5.0m 標準</option>
         <option value="pureL">逆L型（つま先版なし）</option>
+        <option value="collision">H=3.0m 衝突荷重考慮</option>
       </select>
       <button id="btn-print" class="primary">印刷 / PDF保存</button>
       <button id="btn-save">入力を保存(JSON)</button>
@@ -76,6 +77,11 @@
       <div class="grp" id="grp-seismic">
         <div class="row"><label>設計水平震度 kh</label><input type="number" step="0.01" data-path="seismic.kh"><span class="unit">-</span></div>
       </div>
+      <div class="row"><label>衝突荷重を考慮する</label><input type="checkbox" data-path="collision.enabled"><span class="unit"></span></div>
+      <div class="grp" id="grp-collision">
+        <div class="row"><label>衝突荷重 P</label><input type="number" step="0.5" data-path="collision.P"><span class="unit">kN/m</span></div>
+        <div class="row"><label>作用高さ h（底版下面から）</label><input type="number" step="0.05" data-path="collision.h"><span class="unit">m</span></div>
+      </div>
     </fieldset>
 
     <fieldset>
@@ -86,6 +92,11 @@
       <div class="row"><label>許容偏心量 B/n の n（地震時）</label><input type="number" step="0.5" data-path="stability.seismic.n"><span class="unit">-</span></div>
       <div class="row"><label>滑動安全率 Fs（地震時）</label><input type="number" step="0.05" data-path="stability.seismic.Fs"><span class="unit">-</span></div>
       <div class="row"><label>許容支持力度 qa（地震時）</label><input type="number" step="10" data-path="stability.seismic.qa"><span class="unit">kN/m²</span></div>
+      <div class="grp" id="grp-collision-cond">
+        <div class="row"><label>許容偏心量 B/n の n（衝突時）</label><input type="number" step="0.5" data-path="stability.collision.n"><span class="unit">-</span></div>
+        <div class="row"><label>滑動安全率 Fs（衝突時）</label><input type="number" step="0.05" data-path="stability.collision.Fs"><span class="unit">-</span></div>
+        <div class="row"><label>許容支持力度 qa（衝突時）</label><input type="number" step="10" data-path="stability.collision.qa"><span class="unit">kN/m²</span></div>
+      </div>
     </fieldset>
 
     <fieldset>
