@@ -26,6 +26,7 @@ function syncForm() {
   $('#grp-seismic').classList.toggle('disabled', !model.seismic.enabled);
   $('#grp-collision').classList.toggle('disabled', !model.collision.enabled);
   $('#grp-collision-cond').classList.toggle('disabled', !model.collision.enabled);
+  $('#grp-water').classList.toggle('disabled', !model.water.enabled);
   $('#grp-member').classList.toggle('disabled', !model.member.calc);
 }
 
@@ -56,6 +57,12 @@ function validate(m) {
   }
   if (m.collision.enabled && !(m.collision.P >= 0)) errs.push('衝突荷重 P は 0 以上としてください。');
   if (m.collision.enabled && !(m.collision.h >= 0)) errs.push('衝突荷重の作用高さ h は 0 以上としてください。');
+  if (m.water.enabled) {
+    if (!(m.water.front >= 0) || !(m.water.back >= 0)) errs.push('水位は 0 以上としてください。');
+    if (m.water.back > g.H) errs.push('背面水位は擁壁全高 H 以下としてください。');
+    if (m.water.front > g.H) errs.push('前面水位は擁壁全高 H 以下としてください。');
+    if (!(m.soil.gammaSub > 0) || !(m.soil.gammaW > 0)) errs.push('水中単位体積重量 γ\'・水の単位体積重量 γw は正の値としてください。');
+  }
   return errs;
 }
 

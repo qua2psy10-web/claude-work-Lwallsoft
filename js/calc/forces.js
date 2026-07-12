@@ -43,6 +43,31 @@ export function surchargePart(geom, q, L) {
   return { name: '上載荷重', V: q * B3 * L, x: xb + B3 / 2, y: 0, mass: false };
 }
 
+// 揚圧力（台形分布）
+//  uP1 = -γw・HW1(つま先側), uP2 = -γw・HW2(かかと側)
+//  UP  = (uP1+uP2)/2・B・L,  XG = B(uP1+2uP2)/{3(uP1+uP2)}（つま先端から）
+export function uplift(gammaW, HW1, HW2, B, L) {
+  const uP1 = -gammaW * HW1;
+  const uP2 = -gammaW * HW2;
+  const UP = (uP1 + uP2) / 2 * B * L;
+  const XG = (uP1 + uP2) === 0 ? B / 2 : B * (uP1 + 2 * uP2) / (3 * (uP1 + uP2));
+  return { gammaW, HW1, HW2, B, L, uP1, uP2, UP, XG, UPXG: UP * XG };
+}
+
+// 静水圧 PW = 1/2・γw・Hw²・L（dir: +1=背面(前方へ押す), -1=前面(抵抗)）
+export function waterPressure(gammaW, Hw, L, dir) {
+  const pw = dir * gammaW * Hw;
+  const PW = 0.5 * pw * Hw * L;
+  const YG = Hw / 3;
+  return { gammaW, Hw, L, pw, PW, YG, PWYG: PW * YG };
+}
+
+// 揚圧力強度分布 u(x) [x: つま先端から。台形補間]
+export function upliftAt(up, x) {
+  if (!up) return 0;
+  return up.gammaW * (up.HW1 + (up.HW2 - up.HW1) * x / up.B);
+}
+
 // 作用力の集計と偏心量・モーメント（つま先版前面まわり）
 //  e = B/2 - (ΣV・x - ΣH・y)/ΣV,  M = V・e
 export function aggregate(rows, B) {

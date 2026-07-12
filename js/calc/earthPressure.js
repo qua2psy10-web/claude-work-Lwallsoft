@@ -18,6 +18,23 @@ function shoelace(poly) {
   return Math.abs(s) / 2;
 }
 
+// 多角形の y ≦ yc の部分を切り出す（Sutherland-Hodgman）
+function clipBelow(poly, yc) {
+  const out = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i];
+    const b = poly[(i + 1) % poly.length];
+    const ain = a[1] <= yc + 1e-12;
+    const bin = b[1] <= yc + 1e-12;
+    if (ain) out.push(a);
+    if (ain !== bin) {
+      const t = (yc - a[1]) / (b[1] - a[1]);
+      out.push([a[0] + t * (b[0] - a[0]), yc]);
+    }
+  }
+  return out;
+}
+
 // 1つのすべり角ωに対する土圧合力
 // p: 計算パラメータ, heelX: 作用面のx座標（全体座標系での出力用）
 function wedgeAt(omegaDeg, p, heelX) {
@@ -58,7 +75,10 @@ function wedgeAt(omegaDeg, p, heelX) {
 
   const A = shoelace(poly);
   if (!(A > 0)) return null;
-  const sgA = p.gamma * A;
+  // 背面水位以下は水中単位体積重量
+  const hw = Math.min(Math.max(p.waterLevel || 0, 0), p.Hp);
+  const Abelow = hw > 0 ? shoelace(clipBelow(poly, hw)) : 0;
+  const sgA = p.gamma * (A - Abelow) + (p.gammaSub || 0) * Abelow;
   const sqB = (p.q || 0) * xi;             // 上載荷重（水平投影幅）
   const W = sgA + sqB;
   const l = Math.hypot(xi, yi);            // すべり面長さ
@@ -74,7 +94,8 @@ function wedgeAt(omegaDeg, p, heelX) {
   };
 }
 
-// パラメータ p: Hp(作用面高さ), gamma, phi(度), delta(度), c, kh, q, precision(度),
+// パラメータ p: Hp(作用面高さ), gamma, gammaSub, waterLevel(作用面下端からの背面水位),
+//   phi(度), delta(度), c, kh, q, precision(度),
 //   rise(作用面天端より上の残り嵩上げ高さ m), slopeN(法面勾配1:nのn)
 // heelX: 作用面のx座標（=仮想背面なら底版幅B）
 export function trialWedge(p, heelX) {

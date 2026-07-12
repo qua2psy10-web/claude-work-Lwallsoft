@@ -186,6 +186,52 @@ console.log('◆ 衝突荷重（衝突時ケース）');
 }
 
 // ---------------------------------------------------------------
+console.log('◆ 水位・揚圧力（浮力考慮ケース）');
+{
+  const dry = compute(defaultInput());
+  const inp = defaultInput();
+  inp.water.enabled = true;
+  inp.water.front = 0.5;
+  inp.water.back = 1.5;
+  const r = compute(inp);
+  const c0 = r.cases[0], c1 = r.cases[1];
+
+  // 揚圧力: UP = -9.8*(0.5+1.5)/2*3 = -29.4, XG = 3*(0.5+2*1.5)/(3*(0.5+1.5)) = 1.75
+  eq('揚圧力 UP', r.water.up.UP, -29.4, 0.001);
+  eq('揚圧力 XG', r.water.up.XG, 1.75, 0.001);
+  // 静水圧: 背面 0.5*9.8*1.5^2 = 11.025, 前面 -0.5*9.8*0.5^2 = -1.225
+  eq('背面水圧 PW', r.water.wpBack.PW, 11.025, 0.001);
+  eq('前面水圧 PW', r.water.wpFront.PW, -1.225, 0.001);
+  eq('背面水圧 作用高', r.water.wpBack.YG, 0.5, 1e-9);
+  // ΣVの減少 = 揚圧力
+  eq('ΣV減少 = UP', c0.sum.V - dry.cases[0].sum.V, -29.4, 0.001);
+  // ΣHの増分 = 背面水圧 + 前面水圧 + 土圧変化（土圧は水中重量で減少）
+  ok('浮力考慮で土圧減少', c0.ep.PA < dry.cases[0].ep.PA);
+  // 全水没に近い場合の土圧: 背面水位=H で γ' 使用（q=0, β=0, Ka=1/3）
+  const inpS = defaultInput();
+  inpS.surcharge.enabled = false;
+  inpS.seismic.enabled = false;
+  inpS.water.enabled = true;
+  inpS.water.front = 0;
+  inpS.water.back = 3.0;
+  const cS = compute(inpS).cases[0];
+  eq('全水没 PA = 1/2・γ′・H²・Ka', cS.ep.PA, 0.5 * 9.2 * 9 / 3, 0.05);
+  // 地震時は浮力無視 → 水位なしと同一
+  eq('地震時 浮力無視 PA', c1.ep.PA, dry.cases[1].ep.PA, 1e-6);
+  eq('地震時 浮力無視 ΣV', c1.sum.V, dry.cases[1].sum.V, 1e-6);
+  // 部材: たて壁に背面水圧（付け根から hw=1.0m 分: 0.5*9.8*1^2=4.9）が加算される
+  ok('たて壁S増加(水圧分)', c0.member.stem.S > 0);
+  // 揚圧力オフ: 揚圧力行なし、土圧低減・水圧は維持
+  const inpU = defaultInput();
+  inpU.water.enabled = true;
+  inpU.water.considerUplift = false;
+  const rU = compute(inpU);
+  ok('揚圧力オフで行なし', !rU.cases[0].rows.some((row) => row.name === '揚圧力'));
+  ok('揚圧力オフでも水圧行あり', rU.cases[0].rows.some((row) => row.name === '水圧'));
+  eq('揚圧力オフ ΣV差 = -UP', rU.cases[0].sum.V - c0.sum.V, 29.4, 0.001);
+}
+
+// ---------------------------------------------------------------
 console.log('◆ 全プリセットで例外・NaNが発生しないこと');
 {
   for (const [name, fn] of Object.entries(presets)) {

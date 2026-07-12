@@ -73,8 +73,16 @@ function surfY(geom, raise, slopeN, x) {
   return geom.H + Math.min(Math.max(x - xb, 0) / slopeN, raise);
 }
 
-// 1.1.2 全体形状図（背面土砂・嵩上げ盛土・仮想背面）
-export function overallFig(geom, { raise = 0, slopeN = 0, Df = 0, Hp = 0 }) {
+// 水位マーク（▽記号付き破線）
+function waterMark(x1, y, x2, lx, label) {
+  let o = L(x1, y, x2, y, 'water');
+  o += PL([[lx - 5, y - 6], [lx + 5, y - 6], [lx, y]], 'wmark');
+  if (label) o += T(lx, y - 10, label, 'dtx');
+  return o;
+}
+
+// 1.1.2 全体形状図（背面土砂・嵩上げ盛土・仮想背面・水位）
+export function overallFig(geom, { raise = 0, slopeN = 0, Df = 0, Hp = 0, wFront = 0, wBack = 0 }) {
   const W = 340, H = 250;
   const bd = body(geom);
   const raised = raise > 0 && slopeN > 0;
@@ -109,6 +117,9 @@ export function overallFig(geom, { raise = 0, slopeN = 0, Df = 0, Hp = 0 }) {
     g += T(X(bd.xb + slopeN * raise / 2) - 4, Y(geom.H + raise / 2) - 6, `1:${slopeN}`, 'dtx', 'end');
     g += dim(X(bd.xb + slopeN * raise) + 16, Y(geom.H), X(bd.xb + slopeN * raise) + 16, Y(geom.H + raise), mmv(raise));
   }
+  // 水位（前面・背面）
+  if (wFront > 0) g += waterMark(X(-0.9), Y(wFront), X(0) - 2, X(-0.5), mmv(wFront));
+  if (wBack > 0) g += waterMark(X(bd.B) + 2, Y(wBack), X(surfEndX), X(bd.B + 0.7), mmv(wBack));
   // 根入れ
   g += dim(X(-0.45), Y(0), X(-0.45), Y(Df), mmv(Df));
   g += dim(X(0), oy + 16, X(bd.B), oy + 16, mmv(bd.B), 5);
@@ -147,7 +158,7 @@ export function wedgeMethodFig(seismic) {
 }
 
 // ケース毎の土圧計算図
-export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0 }) {
+export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0, waterBack = 0 }) {
   const W = 320, H = 210;
   const bd = body(geom);
   const endX = ep.end ? ep.end[0] : bd.B + ep.Hp / Math.tan(ep.omega * RAD);
@@ -178,10 +189,33 @@ export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0 }
     for (let x = X(bd.B) + 6; x <= X(endX); x += 15) g += L(x, yq - 14, x, yq - 3, 'arrow');
     g += T(X((bd.B + endX) / 2), yq - 19, '活荷重', 'sym');
   }
+  // 背面水位
+  if (waterBack > 0) g += waterMark(X(bd.B) + 2, Y(waterBack), X(endX), X(bd.B + (endX - bd.B) * 0.55), mmv(waterBack));
   // 土圧合力
   g += L(X(bd.B) + 2, Y(ep.Hp / 3), X(bd.B) - 34, Y(ep.Hp / 3), 'arrow');
   g += T(X(bd.B) - 36, Y(ep.Hp / 3) - 3, ep.PA ? `PA=${fmt3(ep.PA)}` : 'PA', 'dtx', 'end');
   g += dim(X(0) - 14, Y(0), X(0) - 14, Y(ep.Hp), mmv(ep.Hp));
+  return svg(W, H, g);
+}
+
+// 揚圧力図（台形分布）
+export function upliftFig(up) {
+  const W = 400, H = 155;
+  const x0 = 90, x1 = 270, yb = 50;
+  const maxU = Math.max(Math.abs(up.uP1), Math.abs(up.uP2), 1e-6);
+  const d1 = 55 * Math.abs(up.uP1) / maxU, d2 = 55 * Math.abs(up.uP2) / maxU;
+  let g = L(x0 - 20, yb, x1 + 20, yb, 'ln');
+  g += P([[x0, yb], [x1, yb], [x1, yb + d2], [x0, yb + d1]], 'press');
+  for (let i = 0; i <= 4; i++) {
+    const x = x0 + (x1 - x0) * i / 4;
+    const d = d1 + (d2 - d1) * i / 4;
+    if (d > 4) g += L(x, yb + d, x, yb + 3, 'arrow');
+  }
+  g += T(x0 - 5, yb + Math.max(d1, d2) + 16, `uP1 = ${fmt3(up.uP1)} (kN/m2)`, 'dtx', 'start');
+  g += T(x1 + 6, yb + d2 + 4, `uP2 = ${fmt3(up.uP2)} (kN/m2)`, 'dtx', 'start');
+  g += T(x0 - 5, yb - 18, 'つま先側', 'gtx', 'start');
+  g += T(x1 + 5, yb - 18, 'かかと側', 'gtx', 'end');
+  g += dim(x0, yb - 8, x1, yb - 8, fmt3(up.B));
   return svg(W, H, g);
 }
 
