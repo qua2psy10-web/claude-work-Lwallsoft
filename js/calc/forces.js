@@ -1,8 +1,6 @@
 // 作用力の算定: 躯体自重・背面土砂・慣性力・作用力集計・地盤反力度
 import { sectionProperties, bodyVertices, dims } from './geometry.js';
 
-const RAD = Math.PI / 180;
-
 // 躯体自重（座標法）。XGはつま先版前面(x=0)からの距離、YGは底版下面(y=0)からの高さ。
 export function selfWeight(geom, gammaConcrete, bodyLength) {
   const sec = sectionProperties(bodyVertices(geom));
@@ -10,20 +8,29 @@ export function selfWeight(geom, gammaConcrete, bodyLength) {
   return { sec, A: sec.A, gamma: gammaConcrete, L: bodyLength, V, XG: sec.XG, YG: sec.YG, VXG: V * sec.XG };
 }
 
-// かかと版上の背面土砂（矩形部＋盛土勾配部）
-export function soilParts(geom, gamma, L) {
+// かかと版上の背面土砂（矩形部＋嵩上げ盛土部）
+// 嵩上げ盛土: たて壁天端(x=xb)から勾配1:nで嵩上げ高さraiseまで立ち上がり、その先レベル
+export function soilParts(geom, backfill, gamma, L) {
   const { h, xb, B } = dims(geom);
-  const { B3, t3, H, beta } = geom;
+  const { B3, t3, H } = geom;
+  const raise = backfill?.raise || 0;
+  const n = backfill?.slopeN || 0;
   const parts = [];
   if (B3 <= 1e-9) return parts;
   // 矩形部（t3〜H, 幅B3）
-  const Vr = gamma * B3 * h * L;
-  parts.push({ name: '背面土砂(矩形部)', V: Vr, x: xb + B3 / 2, y: t3 + h / 2, mass: true });
-  // 盛土勾配部（三角形）
-  if (beta > 1e-9) {
-    const hs = B3 * Math.tan(beta * RAD);
-    const Vt = gamma * 0.5 * B3 * hs * L;
-    parts.push({ name: '背面土砂(勾配部)', V: Vt, x: xb + 2 * B3 / 3, y: H + hs / 3, mass: true });
+  parts.push({ name: '背面土砂(矩形部)', V: gamma * B3 * h * L, x: xb + B3 / 2, y: t3 + h / 2, mass: true });
+  // 嵩上げ盛土部（かかと版上のy>Hの土砂）
+  if (raise > 1e-9 && n > 0) {
+    const xBreak = n * raise; // xbからの折れ点距離
+    if (xBreak >= B3) {
+      // かかと版上はすべて勾配区間: 三角形（かかと末端で高さ B3/n）
+      const hs = B3 / n;
+      parts.push({ name: '背面土砂(嵩上げ勾配部)', V: gamma * 0.5 * B3 * hs * L, x: xb + 2 * B3 / 3, y: H + hs / 3, mass: true });
+    } else {
+      // 勾配区間の三角形 ＋ レベル区間の矩形
+      parts.push({ name: '背面土砂(嵩上げ勾配部)', V: gamma * 0.5 * xBreak * raise * L, x: xb + 2 * xBreak / 3, y: H + raise / 3, mass: true });
+      parts.push({ name: '背面土砂(嵩上げ水平部)', V: gamma * (B3 - xBreak) * raise * L, x: xb + xBreak + (B3 - xBreak) / 2, y: H + raise / 2, mass: true });
+    }
   }
   return parts;
 }

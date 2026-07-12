@@ -50,8 +50,10 @@ function validate(m) {
   if (!(g.B3 >= 0)) errs.push('かかと版長 B3 は 0 以上としてください。');
   if (!(g.B1 + g.t2 + g.B3 > 0)) errs.push('底版幅が 0 です。');
   if (!(m.soil.phi > 0 && m.soil.phi < 60)) errs.push('せん断抵抗角 φ は 0〜60度 の範囲としてください。');
-  if (g.beta >= m.soil.phi) errs.push('盛土勾配 β が せん断抵抗角 φ 以上のため土圧が算定できません。');
-  if (g.beta < 0) errs.push('盛土勾配 β は 0 以上としてください。');
+  if (m.backfill.raise < 0) errs.push('嵩上げ高さは 0 以上としてください。');
+  if (m.backfill.raise > 0 && !(m.backfill.slopeN > 0)) {
+    errs.push('嵩上げ時は法面勾配 1:n の n を正の値としてください。');
+  }
   if (m.collision.enabled && !(m.collision.P >= 0)) errs.push('衝突荷重 P は 0 以上としてください。');
   if (m.collision.enabled && !(m.collision.h >= 0)) errs.push('衝突荷重の作用高さ h は 0 以上としてください。');
   return errs;

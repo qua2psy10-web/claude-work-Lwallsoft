@@ -2,6 +2,7 @@
 //   node tests/verify.mjs
 import { compute } from '../js/calc/engine.js';
 import { presets, defaultInput } from '../js/model.js';
+import { trialWedge } from '../js/calc/earthPressure.js';
 
 let pass = 0, fail = 0;
 function eq(label, actual, expected, tol = 0.01) {
@@ -100,14 +101,53 @@ console.log('◆ 逆L型（つま先版なし B1=0）');
 }
 
 // ---------------------------------------------------------------
-console.log('◆ 盛土勾配（β>0 で土圧増加）');
+console.log('◆ 嵩上げ盛土（勾配1:n・嵩上げ高さ）');
 {
-  const level = compute(defaultInput()).cases[0].ep.PA;
-  const slope = compute(presets.slope()).cases[0].ep.PA;
-  ok('盛土勾配で土圧増加', slope > level);
-  const r = compute(presets.slope());
-  ok('仮想背面高さ H′ > H', r.Hp > r.input.geometry.H);
-  ok('NaNなし', r.cases.every((c) => isFinite(c.sum.V) && isFinite(c.bearing.qmax)));
+  // (1) 無限長斜面の極限は Rankine の理論解と一致（β=10°, δ=β, 鉛直作用面）
+  //     Ka = cosβ・(cosβ−√(cos²β−cos²φ))/(cosβ+√(cos²β−cos²φ)),  PA = 1/2・γ・H²・Ka
+  const beta = 10, phi = 30, gamma = 19, Hw = 1.0;
+  const cb = Math.cos(beta * RAD);
+  const rt = Math.sqrt(cb * cb - Math.cos(phi * RAD) ** 2);
+  const Ka = cb * (cb - rt) / (cb + rt);
+  const PAexp = 0.5 * gamma * Hw * Hw * Ka;
+  const rw = trialWedge({
+    Hp: Hw, gamma, phi, delta: beta, c: 0, kh: 0, q: 0,
+    precision: 0.001, rise: 100, slopeN: 1 / Math.tan(beta * RAD),
+  }, 0.5);
+  eq('無限斜面 PA = Rankine', rw.PA, PAexp, PAexp * 0.005);
+
+  // (2) 嵩上げ高さに対する単調性: レベル < 嵩上げ0.5m < 嵩上げ大
+  const mk = (raise) => {
+    const d = defaultInput();
+    d.surcharge.enabled = false;
+    d.seismic.enabled = false;
+    d.backfill.raise = raise;
+    d.backfill.slopeN = 3.0; // β≈18.4° < φ
+    return compute(d).cases[0].ep.PA;
+  };
+  const pa0 = mk(0), pa05 = mk(0.5), paBig = mk(50);
+  ok('嵩上げでPA増加(0<0.5<大)', pa05 > pa0 && paBig > pa05);
+  eq('raise=0はレベルと一致(Ka=1/3)', pa0, 0.5 * 19 * 9 / 3, 0.05);
+
+  // (3) 仮想背面高さ H′ = H + min(B3/n, raise)
+  const d1 = defaultInput();
+  d1.backfill.raise = 0.4;      // B3/n = 2.0/1.5 = 1.333 > 0.4 → H′ = H + 0.4
+  d1.backfill.slopeN = 1.5;
+  eq('H′ = H + raise(折れ点がかかと内)', compute(d1).Hp, 3.4, 1e-9);
+  const d2 = defaultInput();
+  d2.backfill.raise = 2.0;      // B3/n = 1.333 < 2.0 → H′ = H + B3/n
+  d2.backfill.slopeN = 1.5;
+  eq('H′ = H + B3/n(折れ点がかかと外)', compute(d2).Hp, 3.0 + 2.0 / 1.5, 1e-9);
+
+  // (4) 背面土砂の嵩上げ部重量（raise=0.4, n=1.5: 三角形0.5·0.6·0.4 + 矩形1.4·0.4）
+  const r1 = compute(d1);
+  const extra = r1.soil.filter((p) => p.name.includes('嵩上げ')).reduce((s, p) => s + p.V, 0);
+  eq('嵩上げ部土砂重量', extra, 19 * (0.5 * 0.6 * 0.4 + 1.4 * 0.4), 0.01);
+
+  // (5) 標準の嵩上げプリセット(1:1.5, raise=1.0)が正常に計算できる
+  const rs = compute(presets.slope());
+  ok('嵩上げプリセット NaNなし', rs.cases.every((c) => isFinite(c.sum.V) && isFinite(c.bearing.qmax) && c.ep.PA > 0));
+  ok('嵩上げプリセット H′>H', rs.Hp > 3.0);
 }
 
 // ---------------------------------------------------------------

@@ -15,7 +15,10 @@ export function defaultInput() {
       B3: 2.00,   // かかと版長 (m)
       t3: 0.50,   // 底版厚 (m)
       Df: 0.50,   // 根入れ深さ (m)
-      beta: 0.0,  // 盛土勾配 (度)
+    },
+    backfill: {
+      raise: 0.0,   // 嵩上げ高さ (m)。0でレベル、>0でたて壁天端から勾配1:nで立ち上がる
+      slopeN: 1.50, // 法面勾配 1:n の n（raise>0 のとき有効）
     },
     concrete: {
       gammaC: 24.5, // 鉄筋コンクリート単位体積重量 (kN/m3)
@@ -81,8 +84,9 @@ export const presets = {
   standard: () => defaultInput(),
   slope: () => {
     const d = defaultInput();
-    d.title = 'L型擁壁 H=3.0m 盛土勾配1:3（β≈18°）';
-    d.geometry.beta = 18.43; // 1:3 ≒ 18.43度（φ未満）
+    d.title = 'L型擁壁 H=3.0m 嵩上げ盛土（1:1.5・嵩上げ1.0m）';
+    d.backfill.raise = 1.0;
+    d.backfill.slopeN = 1.5;
     return d;
   },
   tall: () => {

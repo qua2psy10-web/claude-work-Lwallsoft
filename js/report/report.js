@@ -32,7 +32,8 @@ export function buildBlocks(r) {
   const collisionOn = !!inp.collision?.enabled;
   const mem = inp.member.calc;
   const B = r.dims.B;
-  const xmin = Math.max(inp.soil.phi, geom.beta);
+  const bf = r.backfill;
+  const xmin = inp.soil.phi;
 
   // ================= 第1章 設計条件 =================
   b.chapter('設計条件');
@@ -58,13 +59,17 @@ export function buildBlocks(r) {
   ]));
 
   b.sub('全体形状');
-  b.add(bullets([
-    ['背面土砂形状', geom.beta > 0.01 ? '盛土（勾配）' : 'レベル'],
-    ['盛土勾配 β', `${fmt3(geom.beta)} (度)`],
-    ['根入れ深さ Df', `${fmt3(geom.Df)} (m)`],
-    ['仮想背面高さ H′ = H + B3・tanβ', `${fmt3(r.Hp)} (m)`],
-  ]));
-  b.add(`<div class="rpt-figwrap">${overallFig(geom, { beta: geom.beta, Df: geom.Df })}</div>`);
+  {
+    const items = [['背面土砂形状', bf.raised ? '盛土（嵩上げ）' : 'レベル']];
+    if (bf.raised) {
+      items.push(['嵩上げ高さ', `${fmt3(bf.raise)} (m)`]);
+      items.push(['法面勾配', `1:${fmt2(bf.slopeN)}　（法面傾斜角 β = ${fmt3(bf.beta)} 度）`]);
+    }
+    items.push(['根入れ深さ Df', `${fmt3(geom.Df)} (m)`]);
+    items.push(['仮想背面高さ H′', `${fmt3(r.Hp)} (m)`]);
+    b.add(bullets(items));
+  }
+  b.add(`<div class="rpt-figwrap">${overallFig(geom, { raise: bf.raise, slopeN: bf.slopeN, Df: geom.Df, Hp: r.Hp })}</div>`);
 
   b.sec('準拠指針');
   b.add(para(`　　${esc(inp.guideline)}`));
@@ -269,7 +274,7 @@ export function buildBlocks(r) {
 
   b.sec('土圧');
   b.sub('計算方法');
-  b.add(para('　　仮想背面（かかと版末端を通る鉛直面）に作用する主働土圧を試行くさび法で求めます。壁面摩擦角 δ=β。'));
+  b.add(para('　　仮想背面（かかと版末端を通る鉛直面）に作用する主働土圧を試行くさび法で求めます。地表面は嵩上げ盛土（勾配1:n→レベル）の折れ線に対応し、壁面摩擦角 δ は仮想背面位置の地表面勾配とします。'));
   b.add(`<div class="rpt-figwrap">${wedgeMethodFig(false)}</div>`);
   b.add(formula(
     '<div>W　＝ γ・A + q・T</div>' +
@@ -280,7 +285,7 @@ export function buildBlocks(r) {
     ['PA', '主働土圧合力 (kN/m)'], ['ω', 'すべり面と水平面のなす角 (度)'],
     ['W', 'すべり面より上の土砂重量＋上載荷重 (kN/m)'], ['A', 'くさび土砂面積 (m2)'],
     ['T', 'くさびの水平幅 (m)'], ['q', '上載荷重 (kN/m2)'], ['l', 'すべり面長さ (m)'],
-    ['φ', 'せん断抵抗角 (度)'], ['δ', '壁面摩擦角＝β (度)'], ['β', '地表面勾配 (度)'], ['c', '粘着力 (kN/m2)'],
+    ['φ', 'せん断抵抗角 (度)'], ['δ', '壁面摩擦角（仮想背面位置の地表面勾配） (度)'], ['β', '法面傾斜角 β=tan⁻¹(1/n) (度)'], ['c', '粘着力 (kN/m2)'],
   ]));
   if (seismic) {
     b.add(para('　　・地震時（慣性力を考慮）'));
@@ -289,7 +294,7 @@ export function buildBlocks(r) {
   b.sub('土圧の計算');
   r.cases.forEach((c, i) => {
     b.add(para(`(${i + 1}) ${esc(c.name)}`, 'case-head'), { keepNext: true });
-    b.add(`<div class="rpt-figwrap">${caseEpFig(geom, c.ep, { surcharge: c.surcharge, beta: geom.beta })}</div>`);
+    b.add(`<div class="rpt-figwrap">${caseEpFig(geom, c.ep, { surcharge: c.surcharge, raise: bf.raise, slopeN: bf.slopeN })}</div>`);
     b.add(table(
       [['H′<br>(m)', 'ω<br>(度)', 'W<br>(kN/m)', 'PA<br>(kN/m)', 'PAV<br>(kN/m)', 'PAH<br>(kN/m)', '作用高 Y<br>(m)']],
       [[fmt3(c.ep.Hp), fmt3(c.ep.omega), fmt3(c.ep.W), fmt3(c.ep.PA), fmt3(c.ep.PAV), fmt3(c.ep.PAH), fmt3(c.ep.Y)]],
