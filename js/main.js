@@ -57,6 +57,10 @@ function validate(m) {
   if (m.backfill.raise > 0 && !(m.backfill.slopeN > 0)) {
     errs.push('嵩上げ時は法面勾配 1:n の n を正の値としてください。');
   }
+  const hc = g.haunch || {};
+  if (hc.height < 0 || hc.width < 0) errs.push('ハンチ寸法は 0 以上としてください。');
+  if (hc.height > g.H - g.t3) errs.push('ハンチ高さは たて壁高（H−t3）以下としてください。');
+  if (hc.width > g.B3) errs.push('ハンチ幅は かかと版長 B3 以下としてください。');
   if (m.collision.enabled && !(m.collision.P >= 0)) errs.push('衝突荷重 P は 0 以上としてください。');
   if (m.collision.enabled && !(m.collision.h >= 0)) errs.push('衝突荷重の作用高さ h は 0 以上としてください。');
   if (m.water.enabled) {

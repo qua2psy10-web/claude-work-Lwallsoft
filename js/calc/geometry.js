@@ -34,11 +34,28 @@ export function dims(geom) {
 }
 
 // L型擁壁躯体の断面頂点（つま先版前面下端が原点、反時計回り）
+// 隅角部ハンチ（たて壁背面 x=xb と底版天端 y=t3 の入隅を埋める三角形）
+export function haunchTri(geom) {
+  const { xb } = dims(geom);
+  const w = geom.haunch?.width || 0;
+  const hh = geom.haunch?.height || 0;
+  if (w <= 1e-9 || hh <= 1e-9) return null;
+  const t3 = geom.t3;
+  return {
+    w, hh, area: 0.5 * w * hh,
+    cx: xb + w / 3, cy: t3 + hh / 3,
+    pts: [[xb, t3], [xb + w, t3], [xb, t3 + hh]],
+  };
+}
+
 export function bodyVertices(geom) {
   const { h, xb, B, xtf } = dims(geom);
   const { B1, t3, H } = geom;
+  const ht = haunchTri(geom);
+  // 入隅(xb,t3)をハンチの斜辺 (xb+w,t3)→(xb,t3+hh) に置き換える
+  const corner = ht ? [[xb + ht.w, t3], [xb, t3 + ht.hh]] : [[xb, t3]];
   return [
-    [0, 0], [B, 0], [B, t3], [xb, t3],
+    [0, 0], [B, 0], [B, t3], ...corner,
     [xb, H], [xtf, H], [B1, t3], [0, t3],
   ];
 }

@@ -255,6 +255,31 @@ console.log('◆ 水位・揚圧力（浮力考慮ケース）');
 }
 
 // ---------------------------------------------------------------
+console.log('◆ 隅角部ハンチ');
+{
+  const base = compute(defaultInput());
+  const inp = defaultInput();
+  inp.geometry.haunch = { height: 0.30, width: 0.30 };
+  const r = compute(inp);
+  // ハンチ三角形の面積 = 0.5*0.3*0.3 = 0.045 m2
+  const area = 0.5 * 0.3 * 0.3;
+  // 躯体自重増分 = γc * area = 24.5 * 0.045 = 1.1025 kN
+  eq('躯体自重の増分 = γc・ハンチ面積', r.self.V - base.self.V, 24.5 * area, 0.001);
+  // 背面土砂にハンチ控除の負の部分がある
+  const disp = r.soil.find((p) => p.name.includes('ハンチ控除'));
+  ok('ハンチ控除の土砂部あり', !!disp);
+  eq('ハンチ控除 = -γ・面積', disp.V, -19 * area, 0.001);
+  // 常時ケース: ΣV増分 = 躯体増(1.1025) - 土砂減(19*0.045=0.855) = 0.2475
+  eq('常時ΣV増分 = 躯体増−土砂減', r.cases[0].sum.V - base.cases[0].sum.V, 24.5 * area - 19 * area, 0.002);
+  // ハンチ0は元と一致
+  const inp0 = defaultInput();
+  inp0.geometry.haunch = { height: 0, width: 0 };
+  eq('ハンチ0は自重不変', compute(inp0).self.V, base.self.V, 1e-9);
+  // 全ケースNaNなし
+  ok('ハンチNaNなし', r.cases.every((c) => isFinite(c.sum.V) && isFinite(c.bearing.qmax) && isFinite(c.member.stem.M)));
+}
+
+// ---------------------------------------------------------------
 console.log('◆ 全プリセットで例外・NaNが発生しないこと');
 {
   for (const [name, fn] of Object.entries(presets)) {

@@ -35,13 +35,15 @@ function dim(x1, y1, x2, y2, label, offTx = -3) {
 
 const mmv = (v) => String(Math.round(v * 1000));
 
-// L型躯体の頂点（つま先版前面下端が原点）
+// L型躯体の頂点（つま先版前面下端が原点。隅角部ハンチを含む）
 function body(geom) {
   const h = geom.H - geom.t3;
   const xb = geom.B1 + geom.t2;
   const B = geom.B1 + geom.t2 + geom.B3;
   const xtf = geom.B1 + (geom.t2 - geom.t1);
-  return { pts: [[0, 0], [B, 0], [B, geom.t3], [xb, geom.t3], [xb, geom.H], [xtf, geom.H], [geom.B1, geom.t3], [0, geom.t3]], h, xb, B, xtf };
+  const w = geom.haunch?.width || 0, hh = geom.haunch?.height || 0;
+  const corner = (w > 1e-9 && hh > 1e-9) ? [[xb + w, geom.t3], [xb, geom.t3 + hh]] : [[xb, geom.t3]];
+  return { pts: [[0, 0], [B, 0], [B, geom.t3], ...corner, [xb, geom.H], [xtf, geom.H], [geom.B1, geom.t3], [0, geom.t3]], h, xb, B, xtf };
 }
 
 // 1.1.1 断面形状図
@@ -63,6 +65,11 @@ export function sectionFig(geom) {
   g += dim(X(bd.B) + 16, Y(0), X(bd.B) + 16, Y(geom.t3), mmv(geom.t3));
   // 天端厚 t1
   g += dim(X(bd.xtf), Y(geom.H) - 12, X(bd.xb), Y(geom.H) - 12, mmv(geom.t1));
+  // 隅角部ハンチ 寸法
+  const hw = geom.haunch?.width || 0, hhh = geom.haunch?.height || 0;
+  if (hw > 1e-9 && hhh > 1e-9) {
+    g += T(X(bd.xb + hw) + 30, Y(geom.t3 + hhh / 2), `ﾊﾝﾁ ${mmv(hhh)}×${mmv(hw)}`, 'gtx', 'start');
+  }
   return svg(W, H, g);
 }
 
