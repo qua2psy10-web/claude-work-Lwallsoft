@@ -159,22 +159,24 @@ export function wedgeMethodFig(seismic) {
 }
 
 // ケース毎の土圧計算図
-export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0, waterBack = 0 }) {
+//  planeX/planeY0: 土圧作用面の位置（省略時は仮想背面 x=B, y=0。たて壁背面なら x=xb, y=t3）
+export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0, waterBack = 0, planeX = null, planeY0 = 0 }) {
   const W = 320, H = 210;
   const bd = body(geom);
-  const endX = ep.end ? ep.end[0] : bd.B + ep.Hp / Math.tan(ep.omega * RAD);
+  const px = planeX == null ? bd.B : planeX;
+  const endX = ep.end ? ep.end[0] : px + ep.Hp / Math.tan(ep.omega * RAD);
   const raised = raise > 0 && slopeN > 0;
-  const topY = Math.max(ep.Hp, ep.end ? ep.end[1] : ep.Hp, geom.H + (raised ? raise : 0));
+  const topY = Math.max(planeY0 + ep.Hp, planeY0 + (ep.end ? ep.end[1] : ep.Hp), geom.H + (raised ? raise : 0));
   const s = Math.min(140 / topY, 250 / (endX + 0.5));
   const ox = 55, oy = 178;
   const X = (x) => ox + x * s, Y = (y) => oy - y * s;
   const sy = (x) => surfY(geom, raise, slopeN, x);
-  // くさび土砂
-  let g = P((ep.poly && ep.poly.length ? ep.poly : [[bd.B, 0], [bd.B, ep.Hp], [endX, ep.Hp]]).map(([x, y]) => [X(x), Y(y)]), 'soil');
+  // くさび土砂（polyのyは作用面下端基準 → planeY0 を加算して全体座標へ）
+  let g = P((ep.poly && ep.poly.length ? ep.poly : [[px, 0], [px, ep.Hp], [endX, ep.Hp]]).map(([x, y]) => [X(x), Y(y + planeY0)]), 'soil');
   // 躯体
   g += P(bd.pts.map(([x, y]) => [X(x), Y(y)]), 'wall');
-  // 仮想背面
-  g += L(X(bd.B), Y(0), X(bd.B), Y(ep.Hp), 'vbf');
+  // 土圧作用面
+  g += L(X(px), Y(planeY0), X(px), Y(planeY0 + ep.Hp), 'vbf');
   // 地表面（折れ線。落差時は天端より低いレベル）
   const sEnd = endX + 0.3;
   const surfPts = [[bd.xb, sy(bd.xb)]];
@@ -182,20 +184,20 @@ export function caseEpFig(geom, ep, { surcharge = false, raise = 0, slopeN = 0, 
   surfPts.push([sEnd, sy(sEnd)]);
   g += PL(surfPts.map(([x, y]) => [X(x), Y(y)]), 'ground');
   // すべり線
-  g += L(X(bd.B), Y(0), X(ep.end[0]), Y(ep.end[1]), 'slip');
-  g += T(Math.min(X(ep.end[0]) + 4, W - 30), Y(ep.end[1]) + 14, `ω=${ep.omega.toFixed(1)}°`, 'dtx', 'start');
+  g += L(X(px), Y(planeY0), X(ep.end[0]), Y(planeY0 + ep.end[1]), 'slip');
+  g += T(Math.min(X(ep.end[0]) + 4, W - 30), Y(planeY0 + ep.end[1]) + 14, `ω=${ep.omega.toFixed(1)}°`, 'dtx', 'start');
   // 活荷重
   if (surcharge) {
     const yq = Y(sy(endX));
-    for (let x = X(bd.B) + 6; x <= X(endX); x += 15) g += L(x, yq - 14, x, yq - 3, 'arrow');
-    g += T(X((bd.B + endX) / 2), yq - 19, '活荷重', 'sym');
+    for (let x = X(px) + 6; x <= X(endX); x += 15) g += L(x, yq - 14, x, yq - 3, 'arrow');
+    g += T(X((px + endX) / 2), yq - 19, '活荷重', 'sym');
   }
-  // 背面水位
-  if (waterBack > 0) g += waterMark(X(bd.B) + 2, Y(waterBack), X(endX), X(bd.B + (endX - bd.B) * 0.55), mmv(waterBack));
+  // 背面水位（底版下面基準の全体座標）
+  if (waterBack > 0) g += waterMark(X(px) + 2, Y(waterBack), X(endX), X(px + (endX - px) * 0.55), mmv(waterBack));
   // 土圧合力
-  g += L(X(bd.B) + 2, Y(ep.Hp / 3), X(bd.B) - 34, Y(ep.Hp / 3), 'arrow');
-  g += T(X(bd.B) - 36, Y(ep.Hp / 3) - 3, ep.PA ? `PA=${fmt3(ep.PA)}` : 'PA', 'dtx', 'end');
-  g += dim(X(0) - 14, Y(0), X(0) - 14, Y(ep.Hp), mmv(ep.Hp));
+  g += L(X(px) + 2, Y(planeY0 + ep.Hp / 3), X(px) - 34, Y(planeY0 + ep.Hp / 3), 'arrow');
+  g += T(X(px) - 36, Y(planeY0 + ep.Hp / 3) - 3, ep.PA ? `PA=${fmt3(ep.PA)}` : 'PA', 'dtx', 'end');
+  g += dim(X(0) - 14, Y(planeY0), X(0) - 14, Y(planeY0 + ep.Hp), mmv(ep.Hp));
   return svg(W, H, g);
 }
 

@@ -123,22 +123,23 @@ export function compute(input) {
         c: cCoh, kh, q, precision: input.epCondition.precision,
         rise: raised ? raise : 0, slopeN,
       }, xb);
-      let Ms = eps.PAH * hStem / 3, Ss = eps.PAH;
+      // 断面力の内訳（付け根まわり: M = Σ S・y）
+      const comps = [{ name: '土圧水平成分 PAH', S: eps.PAH, y: hStem / 3 }];
       if (hwStem > 0) {
         const PWs = 0.5 * gammaW * hwStem * hwStem;   // たて壁背面の静水圧
-        Ms += PWs * hwStem / 3;
-        Ss += PWs;
+        comps.push({ name: '背面水圧 PW', S: PWs, y: hwStem / 3 });
       }
       // たて壁自重を分解して慣性力モーメントを算定（付け根 y=t3 まわり）
       const stem = stemParts(geom, gammaC, L);
       if (kh > 0) {
-        for (const p of stem) { Ms += kh * p.V * (p.y - geom.t3); Ss += kh * p.V; }
+        for (const p of stem) comps.push({ name: `${p.name}慣性力`, S: kh * p.V, y: p.y - geom.t3 });
       }
       // 衝突荷重（たて壁に作用。付け根より上に作用する場合のみ断面力に算入）
       if (cd.collision && col && col.h > geom.t3) {
-        Ms += col.H * (col.h - geom.t3);
-        Ss += col.H;
+        comps.push({ name: col.name, S: col.H, y: col.h - geom.t3 });
       }
+      const Ss = comps.reduce((s, cp) => s + cp.S, 0);
+      const Ms = comps.reduce((s, cp) => s + cp.S * cp.y, 0);
       const stemAs = rebarAs(input.member.stem.bar, input.member.stem.pitch);
       const mStem = memberCheck({ M: Ms, S: Ss, t: geom.t2, cover: input.member.stem.cover, As: stemAs, mat, f });
 
@@ -173,7 +174,7 @@ export function compute(input) {
 
       member = {
         f,
-        stem: { ...mStem, ep: eps, deltaStem, bar: input.member.stem.bar, pitch: input.member.stem.pitch, t: geom.t2 },
+        stem: { ...mStem, ep: eps, deltaStem, hStem, comps, bar: input.member.stem.bar, pitch: input.member.stem.pitch, t: geom.t2 },
         toe: { ...mToe, bar: input.member.toe.bar, pitch: input.member.toe.pitch, t: geom.t3, len: geom.B1 },
         heel: { ...mHeel, bar: input.member.heel.bar, pitch: input.member.heel.pitch, t: geom.t3, len: geom.B3 },
         ok: mStem.ok && (geom.B1 <= 1e-9 || mToe.ok) && (geom.B3 <= 1e-9 || mHeel.ok),
