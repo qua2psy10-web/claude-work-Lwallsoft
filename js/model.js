@@ -15,6 +15,7 @@ export function defaultInput() {
       B3: 2.00,   // かかと版長 (m)
       t3: 0.50,   // 底版厚 (m)
       Df: 0.50,   // 根入れ深さ (m)
+      haunch: { height: 0.0, width: 0.0 }, // 隅角部ハンチ（たて壁背面と底版天端の入隅）高さ・幅 (m)
     },
     backfill: {
       raise: 0.0,   // 嵩上げ高さ (m)。0でレベル、>0でたて壁天端から勾配1:nで立ち上がる
@@ -129,6 +130,12 @@ export const presets = {
     d.water.enabled = true;
     d.water.front = 0.5;
     d.water.back = 1.5;
+    return d;
+  },
+  haunch: () => {
+    const d = defaultInput();
+    d.title = 'L型擁壁 H=3.0m 隅角部ハンチ付き';
+    d.geometry.haunch = { height: 0.30, width: 0.30 };
     return d;
   },
 };

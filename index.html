@@ -24,6 +24,7 @@
         <option value="pureL">逆L型（つま先版なし）</option>
         <option value="collision">H=3.0m 衝突荷重考慮</option>
         <option value="water">H=3.0m 水位・揚圧力考慮</option>
+        <option value="haunch">H=3.0m 隅角部ハンチ付き</option>
       </select>
       <button id="btn-print" class="primary">印刷 / PDF保存</button>
       <button id="btn-save">入力を保存(JSON)</button>
@@ -45,6 +46,8 @@
       <div class="row"><label>かかと版長 B3</label><input type="number" step="0.05" data-path="geometry.B3"><span class="unit">m</span></div>
       <div class="row"><label>底版厚 t3</label><input type="number" step="0.05" data-path="geometry.t3"><span class="unit">m</span></div>
       <div class="row"><label>根入れ深さ Df</label><input type="number" step="0.05" data-path="geometry.Df"><span class="unit">m</span></div>
+      <div class="row"><label>隅角部ハンチ 高さ（0=なし）</label><input type="number" step="0.05" data-path="geometry.haunch.height"><span class="unit">m</span></div>
+      <div class="row"><label>隅角部ハンチ 幅</label><input type="number" step="0.05" data-path="geometry.haunch.width"><span class="unit">m</span></div>
     </fieldset>
 
     <fieldset>

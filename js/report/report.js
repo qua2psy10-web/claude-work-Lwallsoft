@@ -45,15 +45,23 @@ export function buildBlocks(r) {
   b.sub('断面形状');
   b.add(bullets([['構造形式', inp.structure], ['基礎形式', inp.foundation], ['擁壁の種類', inp.wallKind]]));
   b.add(`<div class="rpt-figwrap">${sectionFig(geom)}</div>`);
-  b.add(table([['項目名', '記号', '寸法(m)']], [
-    ['擁壁全高', 'H', fmt3(geom.H)],
-    ['たて壁 天端厚', 't1', fmt3(geom.t1)],
-    ['たて壁 付け根厚', 't2', fmt3(geom.t2)],
-    ['つま先版長', 'B1', fmt3(geom.B1)],
-    ['かかと版長', 'B3', fmt3(geom.B3)],
-    ['底版厚', 't3', fmt3(geom.t3)],
-    ['底版幅', 'B', fmt3(B)],
-  ]));
+  {
+    const grows = [
+      ['擁壁全高', 'H', fmt3(geom.H)],
+      ['たて壁 天端厚', 't1', fmt3(geom.t1)],
+      ['たて壁 付け根厚', 't2', fmt3(geom.t2)],
+      ['つま先版長', 'B1', fmt3(geom.B1)],
+      ['かかと版長', 'B3', fmt3(geom.B3)],
+      ['底版厚', 't3', fmt3(geom.t3)],
+      ['底版幅', 'B', fmt3(B)],
+    ];
+    const hc = geom.haunch;
+    if (hc && hc.width > 1e-9 && hc.height > 1e-9) {
+      grows.push(['隅角部ハンチ 高さ', 'Hv', fmt3(hc.height)]);
+      grows.push(['隅角部ハンチ 幅', 'Wh', fmt3(hc.width)]);
+    }
+    b.add(table([['項目名', '記号', '寸法(m)']], grows));
+  }
   b.add(bullets([
     ['鉄筋コンクリートの単位体積重量', `${fmt3(inp.concrete.gammaC)} (kN/m3)`],
     ['躯体延長', `${fmt3(inp.lengths.body)} (m)`],
@@ -412,6 +420,9 @@ export function buildBlocks(r) {
       ['M', '曲げモーメント (kN・m/m)'], ['S', 'せん断力 (kN/m)'], ['d', '有効高 (mm)'],
       ['As', '引張鉄筋量 (mm2/m)'], ['σc', 'コンクリート圧縮応力度'], ['σs', '鉄筋引張応力度'], ['τ', '平均せん断応力度'],
     ]));
+    if (geom.haunch && geom.haunch.width > 1e-9 && geom.haunch.height > 1e-9) {
+      b.add(para(`　　注）隅角部ハンチ（${fmt3(geom.haunch.height)}×${fmt3(geom.haunch.width)} m）は自重（安定計算）に算入していますが、部材照査の断面は安全側にハンチを無視した公称断面（たて壁 t2、底版 t3）としています。`, 'note'));
+    }
     b.sec('たて壁設計用土圧');
     b.add(para(`　　たて壁の断面力算定用の主働土圧は、たて壁背面（付け根から高さ Hm）に作用する土圧として、壁面摩擦角 δm = ${fmt3(inp.soil.deltaStem)}×φ = ${fmt3(inp.soil.deltaStem * inp.soil.phi)} 度 の試行くさび法により各ケースで別途算定します（安定計算用の仮想背面土圧とは区別します）。算定結果は各ケースの照査に示します。`));
     const memList = [['stem', 'たて壁'], ['toe', 'つま先版'], ['heel', 'かかと版']];

@@ -1,5 +1,5 @@
 // 作用力の算定: 躯体自重・背面土砂・慣性力・作用力集計・地盤反力度
-import { sectionProperties, bodyVertices, dims } from './geometry.js';
+import { sectionProperties, bodyVertices, dims, haunchTri } from './geometry.js';
 
 // 躯体自重（座標法）。XGはつま先版前面(x=0)からの距離、YGは底版下面(y=0)からの高さ。
 export function selfWeight(geom, gammaConcrete, bodyLength) {
@@ -36,6 +36,11 @@ export function soilParts(geom, backfill, gamma, L) {
       parts.push({ name: '背面土砂(嵩上げ勾配部)', V: gamma * 0.5 * xBreak * raise * L, x: xb + 2 * xBreak / 3, y: H + raise / 3, mass: true });
       parts.push({ name: '背面土砂(嵩上げ水平部)', V: gamma * (B3 - xBreak) * raise * L, x: xb + xBreak + (B3 - xBreak) / 2, y: H + raise / 2, mass: true });
     }
+  }
+  // 隅角部ハンチが背面土砂を排除する分を控除
+  const ht = haunchTri(geom);
+  if (ht && hRect > 1e-9) {
+    parts.push({ name: '背面土砂(ハンチ控除)', V: -gamma * ht.area * L, x: ht.cx, y: ht.cy, mass: true });
   }
   return parts;
 }
