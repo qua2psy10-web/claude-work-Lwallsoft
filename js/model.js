@@ -76,6 +76,7 @@ export function defaultInput() {
       tauA: 0.23,      // 許容せん断応力度 τa1 (N/mm2)
       sigmaSa: 180,    // 鉄筋許容引張応力度 (N/mm2) SD345
       rebarKind: 'SD345',
+      pMin: 0.002,     // 最小鉄筋比（引張鉄筋量 As ≧ pMin・b・d）
       kNormal: 1.00,   // 許容応力度の割増係数（常時）
       kSeismic: 1.50,  // 許容応力度の割増係数（地震時）
     },

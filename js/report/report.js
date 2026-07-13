@@ -172,7 +172,7 @@ export function buildBlocks(r) {
       ['許容せん断応力度', 'τa1', fmt3(inp.material.tauA), 'N/mm2'],
       [`鉄筋許容引張応力度 (${inp.material.rebarKind})`, 'σsa', fmt2(inp.material.sigmaSa), 'N/mm2'],
     ]));
-    b.add(bullets([['許容応力度の割増係数', `常時 ${fmt2(inp.material.kNormal)}／地震時 ${fmt2(inp.material.kSeismic)}`], ['ヤング係数比', 'n = 15']]));
+    b.add(bullets([['許容応力度の割増係数', `常時 ${fmt2(inp.material.kNormal)}／地震時 ${fmt2(inp.material.kSeismic)}`], ['ヤング係数比', 'n = 15'], ['最小鉄筋比', `pmin = ${fmt3((inp.material.pMin ?? 0.002) * 100)} %（As ≧ pmin・b・d）`]]));
     b.sub('配筋（引張側 主鉄筋）');
     b.add(table([['部材', '鉄筋径', 'ピッチ(mm)', 'かぶり(mm)']], [
       ['たて壁', inp.member.stem.bar, String(inp.member.stem.pitch), String(inp.member.stem.cover)],
@@ -420,6 +420,12 @@ export function buildBlocks(r) {
       ['M', '曲げモーメント (kN・m/m)'], ['S', 'せん断力 (kN/m)'], ['d', '有効高 (mm)'],
       ['As', '引張鉄筋量 (mm2/m)'], ['σc', 'コンクリート圧縮応力度'], ['σs', '鉄筋引張応力度'], ['τ', '平均せん断応力度'],
     ]));
+    b.add(para('　　あわせて、引張鉄筋量が下限（最小鉄筋量）・上限（最大鉄筋量）の範囲内にあることを照査します。'));
+    b.add(formula(
+      `<div>最小鉄筋量　As,min = pmin・b・d　（pmin = ${fmt3((inp.material.pMin ?? 0.002) * 100)} %）</div>` +
+      `<div>　ただし σs ≦ ${frac('3', '4')}σsa（＝計算上必要鉄筋量の ${frac('4', '3')} を満たす）場合は最小鉄筋量を満足とみなす</div>` +
+      `<div>最大鉄筋量　As,max = pb・b・d,　pb = ${frac('σca・kb', '2σsa')},　kb = ${frac('n・σca', 'n・σca＋σsa')}（釣合鉄筋比）</div>`,
+    ));
     if (geom.haunch && geom.haunch.width > 1e-9 && geom.haunch.height > 1e-9) {
       b.add(para(`　　注）隅角部ハンチ（${fmt3(geom.haunch.height)}×${fmt3(geom.haunch.width)} m）は自重（安定計算）に算入していますが、部材照査の断面は安全側にハンチを無視した公称断面（たて壁 t2、底版 t3）としています。`, 'note'));
     }
@@ -464,6 +470,13 @@ export function buildBlocks(r) {
             ['曲げ圧縮 σc', `${m.sigmaC.toFixed(3)}`, `${fmt3(m.sigmaCa)}`, `<span class="${m.okC ? 'ok' : 'ng'}">${m.okC ? 'OK' : 'NG'}</span>`],
             ['鉄筋引張 σs', `${m.sigmaS.toFixed(2)}`, `${fmt2(m.sigmaSa)}`, `<span class="${m.okS ? 'ok' : 'ng'}">${m.okS ? 'OK' : 'NG'}</span>`],
             ['せん断 τ', `${m.tau.toFixed(3)}`, `${fmt3(m.tauA)}`, `<span class="${m.okTau ? 'ok' : 'ng'}">${m.okTau ? 'OK' : 'NG'}</span>`],
+          ],
+        ));
+        b.add(table(
+          [['鉄筋量照査', '照査式', '判定']],
+          [
+            ['最小鉄筋量', `As=${fmt1(m.As)} ≧ As,min=${fmt1(m.AsMin)}${m.As < m.AsMin ? `（又は σs=${m.sigmaS.toFixed(1)} ≦ ${fmt2(0.75 * m.sigmaSa)}）` : ''}`, `<span class="${m.okMin ? 'ok' : 'ng'}">${m.okMin ? 'OK' : 'NG'}</span>`],
+            ['最大鉄筋量', `As=${fmt1(m.As)} ≦ As,max=${fmt1(m.AsMax)}（pb=${fmt3(m.pB * 100)}%）`, `<span class="${m.okMax ? 'ok' : 'ng'}">${m.okMax ? 'OK' : 'NG'}</span>`],
           ],
         ));
       }
