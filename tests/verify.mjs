@@ -280,6 +280,38 @@ console.log('◆ 隅角部ハンチ');
 }
 
 // ---------------------------------------------------------------
+console.log('◆ 最小・最大鉄筋量の照査');
+{
+  const inp = defaultInput();
+  const r = compute(inp);
+  const m = r.cases[0].member.stem;
+  // As,min = pmin・b・d = 0.002 * 1000 * d
+  eq('As,min = pmin・b・d', m.AsMin, 0.002 * 1000 * m.d, 1e-6);
+  // 釣合鉄筋比 pb: kb = n・σca/(n・σca+σsa) = 15*8/(15*8+180)=0.4, pb = σca・kb/(2σsa)=8*0.4/360
+  const kb = 15 * 8 / (15 * 8 + 180);
+  const pb = 8 * kb / (2 * 180);
+  eq('As,max = pb・b・d', m.AsMax, pb * 1000 * m.d, 1e-6);
+  // 標準配筋(σsが低い)は最小鉄筋量の緩和(σs≦3/4σsa)で満足、最大鉄筋量も満足
+  ok('標準ケース 最小鉄筋量OK（σs緩和）', m.okMin && m.sigmaS <= 0.75 * m.sigmaSa);
+  ok('標準ケース 最大鉄筋量OK', m.okMax && m.As <= m.AsMax);
+  // pbは割増係数に依存しない（地震時ケースでも同じ）
+  const seis = r.cases.find((c) => c.seismic);
+  if (seis) eq('pbは割増係数に依存しない', seis.member.stem.pB, m.pB, 1e-9);
+  // 鉄筋量を極端に減らすと最小鉄筋量NG、増やすと最大鉄筋量NG
+  const inpLow = defaultInput();
+  inpLow.member.stem = { bar: 'D13', pitch: 500, cover: 70 };
+  // As小 & σsが大きくなるよう載荷重を増やして緩和を外す
+  inpLow.surcharge = { enabled: true, q: 30 };
+  const mLow = compute(inpLow).cases[0].member.stem;
+  ok('鉄筋過少かつσs大で最小鉄筋量NG', !mLow.okMin);
+  const inpHigh = defaultInput();
+  inpHigh.member.stem = { bar: 'D32', pitch: 100, cover: 70 };
+  const mHigh = compute(inpHigh).cases[0].member.stem;
+  ok('鉄筋過多で最大鉄筋量NG', !mHigh.okMax);
+  ok('鉄筋量照査NaNなし', r.cases.every((c) => isFinite(c.member.stem.AsMin) && isFinite(c.member.stem.AsMax)));
+}
+
+// ---------------------------------------------------------------
 console.log('◆ 全プリセットで例外・NaNが発生しないこと');
 {
   for (const [name, fn] of Object.entries(presets)) {
