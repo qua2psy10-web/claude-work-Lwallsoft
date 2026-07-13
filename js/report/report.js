@@ -412,6 +412,8 @@ export function buildBlocks(r) {
       ['M', '曲げモーメント (kN・m/m)'], ['S', 'せん断力 (kN/m)'], ['d', '有効高 (mm)'],
       ['As', '引張鉄筋量 (mm2/m)'], ['σc', 'コンクリート圧縮応力度'], ['σs', '鉄筋引張応力度'], ['τ', '平均せん断応力度'],
     ]));
+    b.sec('たて壁設計用土圧');
+    b.add(para(`　　たて壁の断面力算定用の主働土圧は、たて壁背面（付け根から高さ Hm）に作用する土圧として、壁面摩擦角 δm = ${fmt3(inp.soil.deltaStem)}×φ = ${fmt3(inp.soil.deltaStem * inp.soil.phi)} 度 の試行くさび法により各ケースで別途算定します（安定計算用の仮想背面土圧とは区別します）。算定結果は各ケースの照査に示します。`));
     const memList = [['stem', 'たて壁'], ['toe', 'つま先版'], ['heel', 'かかと版']];
     r.cases.forEach((c) => {
       b.sec(`ケースNo.${c.no}　${esc(c.name)}`, { breakBefore: true });
@@ -419,6 +421,27 @@ export function buildBlocks(r) {
         const m = c.member[key];
         if (key !== 'stem' && m.len <= 1e-9) { b.add(para(`(${label}) 部材なし（長さ0）のため省略`)); continue; }
         b.add(para(`(${label})　${m.bar}@${m.pitch}`, 'case-head'), { keepNext: true });
+        if (key === 'stem') {
+          // 設計用土圧の算定（図・表・ω-PA曲線）
+          b.add(para('　　・設計用土圧（試行くさび法、たて壁背面）'), { keepNext: true });
+          b.add(`<div class="rpt-figwrap">${caseEpFig(geom, m.ep, {
+            surcharge: c.surcharge, raise: bf.raise, slopeN: bf.slopeN,
+            waterBack: c.water ? r.water.back : 0,
+            planeX: r.dims.xb, planeY0: geom.t3,
+          })}</div>`);
+          b.add(table(
+            [['Hm<br>(m)', 'δm<br>(度)', 'ω<br>(度)', 'W<br>(kN/m)', 'PA<br>(kN/m)', 'PAV<br>(kN/m)', 'PAH<br>(kN/m)', '作用高 Y<br>(m)']],
+            [[fmt3(m.hStem), fmt3(m.deltaStem), fmt3(m.ep.omega), fmt3(m.ep.W), fmt3(m.ep.PA), fmt3(m.ep.PAV), fmt3(m.ep.PAH), fmt3(m.ep.Y)]],
+          ));
+          b.add(`<div class="rpt-figwrap">${omegaPaGraph(m.ep.curve, xmin)}</div>`);
+          // 断面力の内訳（付け根まわり）
+          b.add(para('　　・断面力（付け根まわり）'), { keepNext: true });
+          const compRows = m.comps.map((cp) => [cp.name, fmt3(cp.S), fmt3(cp.y), fmt3(cp.S * cp.y)]);
+          compRows.push([{ t: '合計', cls: 'lt' }, fmt3(m.S), '-', fmt3(m.M)]);
+          b.add(table([['作用力', 'S<br>(kN/m)', 'アーム y<br>(m)', 'M = S・y<br>(kN・m/m)']], compRows));
+        } else {
+          b.add(para(`　　・断面力は${key === 'toe' ? '地盤反力＋揚圧力（上向き）と底版自重（下向き）' : '背面土砂・上載荷重・底版自重（下向き）と地盤反力＋揚圧力（上向き）'}の差引き分布荷重を付け根まわりに積分して算定します。`, 'note'));
+        }
         b.add(`<div class="rpt-figwrap">${rebarSecFig(m, label)}</div>`);
         b.add(table(
           [['M<br>(kN・m/m)', 'S<br>(kN/m)', 'd<br>(mm)', 'As<br>(mm2/m)', 'k', 'j']],
